@@ -8,12 +8,15 @@ Scatterbrain is a portfolio messaging app combining Discord/Skype-style server-a
 - Servers, channels, thread-based messaging, Supabase Realtime updates, auth
 - A Friends / Servers / Settings top-level switcher (new — see Layout)
 
+**Planned, but later phase (not part of the initial build):**
+- Direct messages — confirmed in scope. Friends ships first as a list/discovery surface; DM threads come after v1.
+- Tag-based channel creation/sorting (organizing or auto-sorting channels by tags derived from existing conversation content) — tentative idea only. Feasibility, mechanics, and whether people would actually use it are all open questions — revisit and scope properly before designing it.
+
 **Explicitly not v1** (revisit later, don't design deeply yet):
 - Voice/video
 - Moderation tooling
 - Notifications
 - Roles/permissions nuance beyond owner/admin/member
-- Direct messages — **TBD: does the new "Friends" menu imply DMs are now in scope, or does it stay a friend list/discovery surface with DMs deferred?** Affects the domain model below either way.
 
 ## Repository
 TBD — add repo URL, default branch, and package manager once set.
@@ -50,6 +53,7 @@ Domain model: **Server → Channel → Thread → Message**, plus **Users & memb
 - Threads — created by a root post in a channel; what makes a thread a thread (title required, or just the first message?): TBD
 - Messages/replies — belong to a thread; author, timestamp, edit history: TBD
 - Users & memberships — roles (owner/admin/member); whether roles matter for v1 at all: TBD
+- Friends/DMs (later phase) — will need a friendship/relationship table and a DM thread type; not modeled yet, revisit when that phase starts
 
 Realtime scope (decide explicitly what's live vs. refetch-on-load):
 - New threads appearing in a channel — realtime
@@ -91,14 +95,14 @@ Deliberately avoided: cream-background/terracotta-serif, near-black/single-neon-
   - *Unified compact list* — no separate icon rail; dense Zulip-style text list, servers as section headers, several can stay expanded at once
   - Both use full server names (not two-letter marks) and distinct treatment for unread / mention / invite states, built on shared interaction logic so they can sit behind one toggle
   - Rejected: blob rail (still read as Discord regardless of icon shape), dot-cluster rail (two-letter marks carried too little information), merged single-panel rail (too cramped), flyout rail (didn't stick)
-- **Main content:** thread canvas — bubble/node view is the primary approved treatment (not a scrollable list); a grid alternative is also approved. Planned as a user-facing toggle, same pattern as above.
+- **Main content:** thread canvas — bubble/node view is the primary approved treatment (not a scrollable list); a grid alternative is also approved. Currently exposed as a top-bar toggle for testing; will be deprecated in favor of a Settings toggle once Settings exists (same eventual pattern as the rail toggle above).
 - **Optional right panel:** thread/channel participants and info, collapsible
 
 ## Section Structure
 Rough route shape (routes/pages, not component sections):
 - `/servers/:serverId/channels/:channelId` — thread canvas
 - `/servers/:serverId/channels/:channelId/threads/:threadId` — open thread
-- `/friends` — new, pending the Friends/DM scope decision above
+- `/friends` — new; friend list/discovery now, DM threads follow in a later phase
 - `/settings` — new, top-level per the switcher above
 - Auth routes, server-discovery/landing route — TBD
 
