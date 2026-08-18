@@ -29,18 +29,6 @@
   --color-signal: #12958A;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Color tokens - Dark mode */
-    --color-void: #13141F;
-    --color-surface: #1C1E30;
-    --color-ink: #ECEDF5;
-    --color-mist: #8B8DA8;
-    --color-spark: #F5B942;
-    --color-signal: #4FD1C5;
-  }
-}
-
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -48,4 +36,14 @@ body {
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark mode - applied via class toggle from useTheme */
+.dark {
+  --color-void: #13141F;
+  --color-surface: #1C1E30;
+  --color-ink: #ECEDF5;
+  --color-mist: #8B8DA8;
+  --color-spark: #F5B942;
+  --color-signal: #4FD1C5;
 }

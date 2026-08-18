@@ -8,13 +8,15 @@ interface ThreadBubbleProps {
 
 export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
   const sizeStyles = {
-    small: { width: '140px', minHeight: '100px', padding: '16px' },
-    medium: { width: '180px', minHeight: '130px', padding: '20px' },
-    large: { width: '225px', minHeight: '160px', padding: '24px' },
+    small: { width: '115px', minHeight: '85px', padding: '14px' },
+    medium: { width: '175px', minHeight: '125px', padding: '18px' },
+    large: { width: '255px', minHeight: '175px', padding: '24px' },
   };
 
   const style = sizeStyles[thread.size];
   const hasRing = thread.isPinned || thread.isUnread;
+  const images = thread.images ?? [];
+  const hasImages = images.length > 0;
 
   return (
     <button
@@ -27,7 +29,7 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
       }}
     >
       <div
-        className="relative"
+        className="relative flex flex-col items-center justify-center text-center gap-2"
         style={{
           ...style,
           backgroundColor: 'var(--color-surface)',
@@ -51,9 +53,9 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
           />
         )}
 
-        {/* Thread Title */}
+        {/* 1. Thread Title */}
         <h3
-          className="font-semibold mb-2 line-clamp-2"
+          className="font-semibold line-clamp-2"
           style={{
             fontSize: thread.size === 'small' ? '11.5px' : thread.size === 'medium' ? '13px' : '14.5px',
             color: 'var(--color-ink)',
@@ -63,9 +65,48 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
           {thread.title}
         </h3>
 
-        {/* Metadata */}
+        {/* 2. Image fan (when the thread has images) — falls back to participant avatars */}
+        {hasImages ? (
+          <ImageFan images={images} size={thread.size} />
+        ) : (
+          <div className="flex items-center">
+            {thread.participants.slice(0, 3).map((participant, index) => {
+              const user = mockUsers.find((u) => u.id === participant.id) || participant;
+              return (
+                <div
+                  key={participant.id}
+                  className="rounded-full border-2"
+                  style={{
+                    width: thread.size === 'small' ? '15px' : '18px',
+                    height: thread.size === 'small' ? '15px' : '18px',
+                    backgroundColor: user.color,
+                    borderColor: 'var(--color-surface)',
+                    marginLeft: index > 0 ? '-6px' : '0',
+                  }}
+                />
+              );
+            })}
+            {thread.participants.length > 3 && (
+              <div
+                className="rounded-full flex items-center justify-center text-[9px] font-semibold border-2"
+                style={{
+                  width: thread.size === 'small' ? '15px' : '18px',
+                  height: thread.size === 'small' ? '15px' : '18px',
+                  backgroundColor: 'rgba(139, 141, 168, 0.2)',
+                  borderColor: 'var(--color-surface)',
+                  color: 'var(--color-ink)',
+                  marginLeft: '-6px',
+                }}
+              >
+                +{thread.participants.length - 3}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 3. Metadata — replies, last activity, and (optionally) image count */}
         <div
-          className="flex items-center gap-1.5 mb-3"
+          className="flex items-center gap-1.5"
           style={{
             fontSize: '10px',
             fontFamily: 'var(--font-mono)',
@@ -76,44 +117,48 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
           <span>{thread.replyCount} replies</span>
           <span>•</span>
           <span>{formatTimestamp(thread.lastActivity)}</span>
-        </div>
-
-        {/* Participants */}
-        <div className="flex items-center">
-          {thread.participants.slice(0, 3).map((participant, index) => {
-            const user = mockUsers.find(u => u.id === participant.id) || participant;
-            return (
-              <div
-                key={participant.id}
-                className="rounded-full border-2"
-                style={{
-                  width: thread.size === 'small' ? '15px' : '18px',
-                  height: thread.size === 'small' ? '15px' : '18px',
-                  backgroundColor: user.color,
-                  borderColor: 'var(--color-surface)',
-                  marginLeft: index > 0 ? '-6px' : '0',
-                }}
-              />
-            );
-          })}
-          {thread.participants.length > 3 && (
-            <div
-              className="rounded-full flex items-center justify-center text-[9px] font-semibold border-2"
-              style={{
-                width: thread.size === 'small' ? '15px' : '18px',
-                height: thread.size === 'small' ? '15px' : '18px',
-                backgroundColor: 'rgba(139, 141, 168, 0.2)',
-                borderColor: 'var(--color-surface)',
-                color: 'var(--color-ink)',
-                marginLeft: '-6px',
-              }}
-            >
-              +{thread.participants.length - 3}
-            </div>
+          {hasImages && (
+            <>
+              <span>•</span>
+              <span>{images.length} images</span>
+            </>
           )}
         </div>
       </div>
     </button>
+  );
+}
+
+function ImageFan({ images, size }: { images: string[]; size: 'small' | 'medium' | 'large' }) {
+  const cardSize = size === 'small' ? 32 : size === 'medium' ? 40 : 48;
+  const shown = images.slice(0, 3);
+  // A 4th card (null = placeholder) appears only when there's more to show beyond the first 3.
+  const cards: (string | null)[] = images.length > 3 ? [...shown, null] : shown;
+  const mid = (cards.length - 1) / 2;
+
+  return (
+    <div className="flex items-center justify-center" style={{ height: cardSize }}>
+      {cards.map((src, index) => (
+        <div
+          key={index}
+          className="rounded-md border-2 flex-shrink-0"
+          style={{
+            width: cardSize,
+            height: cardSize,
+            marginLeft: index === 0 ? 0 : -cardSize * 0.5,
+            transform: `rotate(${(index - mid) * 9}deg)`,
+            borderColor: 'var(--color-surface)',
+            backgroundImage: src
+              ? `url(${src})`
+              : 'linear-gradient(135deg, #A8AABF, #F2F2F6)', // blank grey-to-white "more" placeholder
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            boxShadow: '0 3px 8px rgba(0, 0, 0, 0.25)',
+            zIndex: cards.length - index,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 

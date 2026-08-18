@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 type SwitcherView = 'friends' | 'servers' | 'settings';
 
 interface TopSwitcherProps {
