@@ -1,7 +1,7 @@
 # Scatterbrain
 
 ## Overview
-Scatterbrain is a portfolio messaging app combining Discord/Skype-style server-and-channel organization with forum-style threading: posts in a channel create threads, so a channel's conversation is non-linear until a specific thread is opened. Built to demonstrate distinctive product/UX thinking (a non-list thread display, realtime data modeling) rather than a chat-app clone. Personality: structured but casual, spatial and associative rather than strictly hierarchical — "scattered thoughts finding order," not a corporate chat tool.
+Scatterbrain is a portfolio messaging app combining server-and-channel organization with forum-style threading: posts in a channel create threads, so a channel's conversation is non-linear until a specific thread is opened. Built to demonstrate distinctive product/UX thinking (a non-list thread display, realtime data modeling) rather than a chat-app clone. Personality: structured but casual, spatial and associative rather than strictly hierarchical — "scattered thoughts finding order," not a corporate chat tool.
 
 ## Scope
 **In for v1:**
