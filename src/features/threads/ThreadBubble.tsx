@@ -1,5 +1,6 @@
 import type { Thread } from '../../lib/mockData';
 import { mockUsers } from '../../lib/mockData';
+import { THREAD_SIZES, getThreadAppearance } from './threadLayout';
 
 interface ThreadBubbleProps {
   thread: Thread;
@@ -7,13 +8,9 @@ interface ThreadBubbleProps {
 }
 
 export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
-  const sizeStyles = {
-    small: { width: '115px', minHeight: '85px', padding: '14px' },
-    medium: { width: '175px', minHeight: '125px', padding: '18px' },
-    large: { width: '255px', minHeight: '175px', padding: '24px' },
-  };
-
-  const style = sizeStyles[thread.size];
+  const footprint = THREAD_SIZES[thread.size];
+  // Tilt and blob radius are derived from the thread id, not stored on it.
+  const { rotation, borderRadius } = getThreadAppearance(thread.id);
   const hasRing = thread.isPinned || thread.isUnread;
   const images = thread.images ?? [];
   const hasImages = images.length > 0;
@@ -25,15 +22,17 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
       style={{
         left: `${thread.position.x}px`,
         top: `${thread.position.y}px`,
-        transform: `rotate(${thread.rotation}deg)`,
+        transform: `rotate(${rotation}deg)`,
       }}
     >
       <div
         className="relative flex flex-col items-center justify-center text-center gap-2"
         style={{
-          ...style,
+          width: `${footprint.width}px`,
+          minHeight: `${footprint.minHeight}px`,
+          padding: `${footprint.padding}px`,
           backgroundColor: 'var(--color-surface)',
-          borderRadius: thread.borderRadius,
+          borderRadius,
           border: '1px solid rgba(236, 237, 245, 0.08)',
           boxShadow: hasRing
             ? thread.isPinned
@@ -165,10 +164,13 @@ function ImageFan({ images, size }: { images: string[]; size: 'small' | 'medium'
 function formatTimestamp(date: Date): string {
   const now = new Date();
   const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / (1000 * 60));
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-  if (hours < 24) {
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  } else if (hours < 24) {
     return `${hours}h ago`;
   } else {
     return `${days}d ago`;

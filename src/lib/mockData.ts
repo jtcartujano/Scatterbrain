@@ -22,11 +22,29 @@ export type Message = {
   timestamp: Date;
 };
 
-// Thread types
+/**
+ * Hard cap on a thread description. Mirrored in the database as
+ * `CHECK (char_length(description) <= 140)` — chosen so a description never
+ * needs truncating on a bubble.
+ */
+export const THREAD_DESCRIPTION_MAX_LENGTH = 140;
+
+/**
+ * A thread's root post is its title plus optional description — there is no
+ * body message. So `messages` holds replies only, and `replyCount` is just
+ * their number; `authorId` / `createdAt` describe who started the thread.
+ *
+ * `position` and `size` persist (curated layout, and a fixed footprint keeps
+ * stored coordinates collision-free). Rotation and blob radius are derived
+ * from the id instead — see `features/threads/threadLayout.ts`.
+ */
 export type Thread = {
   id: string;
   title: string;
   channelId: string;
+  description?: string;
+  authorId: string;
+  createdAt: Date;
   messages: Message[];
   participants: User[];
   isPinned?: boolean;
@@ -34,9 +52,7 @@ export type Thread = {
   replyCount: number;
   lastActivity: Date;
   position: { x: number; y: number };
-  rotation: number;
   size: 'small' | 'medium' | 'large';
-  borderRadius: string;
   images?: string[];
 };
 
@@ -136,129 +152,301 @@ export const mockServers: Server[] = [
   },
 ];
 
+const MINUTE = 60 * 1000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+const ago = (ms: number) => new Date(Date.now() - ms);
+
+/**
+ * Authoring shape for the mock threads. `replies` is a compact
+ * `[authorIndex, content]` tuple list — writing 156 literal Message objects
+ * would bury the file and let the derived fields drift out of sync.
+ */
+type ThreadSeed = Omit<Thread, 'messages' | 'replyCount' | 'participants'> & {
+  replies: [authorIndex: number, content: string][];
+};
+
+/**
+ * Expands a seed into a Thread, deriving everything derivable so the
+ * invariants hold by construction: replies are chronological, the last one
+ * lands exactly on `lastActivity`, `replyCount` matches the messages, and
+ * participants are exactly the people who appear in the thread.
+ */
+function toThread(seed: ThreadSeed): Thread {
+  const { replies, ...thread } = seed;
+
+  const start = seed.createdAt.getTime();
+  const span = seed.lastActivity.getTime() - start;
+  const step = replies.length > 0 ? span / replies.length : 0;
+
+  const messages: Message[] = replies.map(([authorIndex, content], index) => ({
+    id: `${seed.id}-m${index + 1}`,
+    authorId: mockUsers[authorIndex].id,
+    content,
+    timestamp: new Date(start + step * (index + 1)),
+  }));
+
+  // Author first, then each distinct replier in the order they first spoke.
+  const participants = [...new Set([seed.authorId, ...messages.map((m) => m.authorId)])]
+    .map((id) => mockUsers.find((user) => user.id === id))
+    .filter((user): user is User => user !== undefined);
+
+  return { ...thread, messages, replyCount: messages.length, participants };
+}
+
 // Threads in "brainstorm" channel (c4)
-// Positions roughly match the mockup layout
-export const mockThreads: Thread[] = [
+// Positions are logical-plane coordinates — see features/threads/threadLayout.ts
+const threadSeeds: ThreadSeed[] = [
   {
     id: 't1',
     title: 'logo direction: bubble vs bolt',
     channelId: 'c4',
-    messages: [],
-    participants: [mockUsers[0], mockUsers[1], mockUsers[2], mockUsers[3], mockUsers[4], mockUsers[5]],
+    description:
+      'Two directions on the table — the soft bubble mark and the sharper bolt. Post variants here, keep the arguing in one place.',
+    authorId: 'u1',
+    createdAt: ago(2 * DAY),
     isPinned: true,
-    replyCount: 42,
-    lastActivity: new Date(Date.now() - 12 * 60 * 1000), // 12m ago
+    lastActivity: ago(12 * MINUTE),
     position: { x: 80, y: 60 },
-    rotation: -2,
     size: 'large',
-    borderRadius: '65% 35% 30% 70%/60% 40% 65% 35%',
+    replies: [
+      [0, 'bolt reads sharper at 16px'],
+      [1, 'bubble has more warmth though'],
+      [2, 'lorem ipsum dolor sit'],
+      [3, 'can we see both on dark?'],
+      [0, 'posting variants in a sec'],
+      [4, 'the bolt feels generic tbh'],
+      [5, 'agreed, seen it everywhere'],
+      [1, 'warmth > sharpness here'],
+      [6, 'what about a hybrid'],
+      [2, 'consectetur adipiscing elit'],
+      [3, 'hybrid usually means neither'],
+      [0, 'fair'],
+      [4, 'try it at favicon size'],
+      [1, 'bubble survives the scale down'],
+      [5, 'bolt turns into a smudge'],
+      [2, 'sed do eiusmod tempor'],
+      [6, 'ok bubble is winning'],
+      [3, 'not so fast'],
+      [0, 'lol'],
+      [4, 'the bolt with rounded ends?'],
+      [1, 'now thats interesting'],
+      [5, 'incididunt ut labore'],
+      [2, 'mocking it up'],
+      [6, 'take your time'],
+      [3, 'et dolore magna aliqua'],
+      [0, 'this is the one'],
+      [4, 'still too busy'],
+      [1, 'busy how'],
+      [5, 'too many curves fighting'],
+      [2, 'ut enim ad minim veniam'],
+      [6, 'simplify the tail'],
+      [3, 'done, v4 posted'],
+      [0, 'much better'],
+      [4, 'ship it'],
+      [1, 'hold on, colours'],
+      [5, 'spark on void obviously'],
+      [2, 'quis nostrud exercitation'],
+      [6, 'signal for the accent?'],
+      [3, 'too teal'],
+      [0, 'agreed'],
+      [4, 'locking v4 then'],
+      [1, 'finally'],
+    ],
   },
   {
     id: 't2',
     title: 'should DMs be encrypted by default?',
     channelId: 'c4',
-    messages: [],
-    participants: [mockUsers[2], mockUsers[3], mockUsers[4], mockUsers[5], mockUsers[6]],
+    authorId: 'u3',
+    createdAt: ago(30 * HOUR),
     isUnread: true,
-    replyCount: 31,
-    lastActivity: new Date(Date.now() - 38 * 60 * 1000), // 38m ago
+    lastActivity: ago(38 * MINUTE),
     position: { x: 380, y: 100 },
-    rotation: 1,
     size: 'large',
-    borderRadius: '45% 55% 60% 40%/55% 45% 50% 50%',
+    replies: [
+      [2, 'e2e by default or opt in?'],
+      [3, 'default. anything else is theatre'],
+      [4, 'key management is the hard part'],
+      [5, 'lorem ipsum dolor sit amet'],
+      [6, 'device loss = history loss'],
+      [2, 'thats the tradeoff yeah'],
+      [3, 'backup keys?'],
+      [4, 'then whats the point'],
+      [0, 'point is transport safety'],
+      [5, 'consectetur adipiscing'],
+      [6, 'search breaks completely'],
+      [2, 'client side index'],
+      [3, 'on mobile? good luck'],
+      [4, 'fair'],
+      [0, 'scope it to DMs only'],
+      [5, 'sed do eiusmod tempor'],
+      [6, 'servers stay plaintext then'],
+      [2, 'for now'],
+      [3, 'v1 doesnt need this at all'],
+      [4, 'disagree strongly'],
+      [0, 'we can ship the flag off'],
+      [5, 'incididunt ut labore et dolore'],
+      [6, 'flags rot'],
+      [2, 'everything rots'],
+      [3, 'ok but seriously'],
+      [4, 'lets timebox the spike'],
+      [0, 'two days?'],
+      [5, 'magna aliqua ut enim'],
+      [6, 'three'],
+      [2, 'three then'],
+      [3, 'noted, writing it up'],
+    ],
   },
   {
     id: 't3',
     title: "who's up for game night friday",
     channelId: 'c4',
-    messages: [],
-    participants: [mockUsers[0], mockUsers[1], mockUsers[4], mockUsers[6]],
-    replyCount: 18,
-    lastActivity: new Date(Date.now() - 60 * 60 * 1000), // 1h ago
+    authorId: 'u2',
+    createdAt: ago(20 * HOUR),
+    lastActivity: ago(1 * HOUR),
     position: { x: 680, y: 50 },
-    rotation: 2,
     size: 'medium',
-    borderRadius: '50% 50% 45% 55%/65% 35% 50% 50%',
+    replies: [
+      [1, 'im in'],
+      [0, 'same'],
+      [4, 'what time'],
+      [6, 'lorem ipsum dolor'],
+      [1, 'eight works for me'],
+      [0, 'eight is late'],
+      [4, 'seven thirty?'],
+      [6, 'fine by me'],
+      [1, 'what are we playing'],
+      [0, 'anything but that one'],
+      [4, 'sit amet consectetur'],
+      [6, 'be specific'],
+      [1, 'the long one'],
+      [0, 'ha'],
+      [4, 'ill bring snacks'],
+      [6, 'adipiscing elit sed'],
+      [1, 'seven thirty locked'],
+      [0, 'see you then'],
+    ],
   },
   {
     id: 't4',
     title: 'onboarding flow — too many steps?',
     channelId: 'c4',
-    messages: [],
-    participants: [mockUsers[1], mockUsers[3], mockUsers[5]],
+    description:
+      'Six screens before anyone sends a message. Where can we cut, and what genuinely has to stay?',
+    authorId: 'u4',
+    createdAt: ago(26 * HOUR),
     isUnread: true,
-    replyCount: 14,
-    lastActivity: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2h ago
+    lastActivity: ago(2 * HOUR),
     position: { x: 100, y: 320 },
-    rotation: -1,
     size: 'large',
-    borderRadius: '70% 30% 55% 45%/50% 50% 60% 40%',
+    replies: [
+      [1, 'six screens is a lot'],
+      [3, 'four of them are legal'],
+      [5, 'can legal be one screen'],
+      [1, 'lorem ipsum dolor sit'],
+      [3, 'probably, asking'],
+      [5, 'avatar step can go'],
+      [1, 'people skip it anyway'],
+      [3, 'then why is it blocking'],
+      [5, 'legacy'],
+      [1, 'consectetur adipiscing elit'],
+      [3, 'cut to three total'],
+      [5, 'three feels right'],
+      [1, 'ill draft it'],
+      [3, 'thanks'],
+    ],
   },
   {
     id: 't5',
     title: 'new emoji pack: rough sketches',
     channelId: 'c4',
-    messages: [],
-    participants: [],
-    replyCount: 6,
-    lastActivity: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3h ago
+    description: 'Rough pencil passes, nothing final.',
+    authorId: 'u6',
+    createdAt: ago(9 * HOUR),
+    lastActivity: ago(3 * HOUR),
     position: { x: 380, y: 340 },
-    rotation: 0,
     size: 'small',
-    borderRadius: '55% 45% 50% 50%/60% 40% 55% 45%',
+    replies: [
+      [6, 'these are rough, be nice'],
+      [0, 'the third one is great'],
+      [2, 'lorem ipsum'],
+      [6, 'thats the throwaway one lol'],
+      [0, 'still great'],
+      [2, 'more of that direction'],
+    ],
   },
   {
     id: 't6',
     title: 'bug: notifications double-firing',
     channelId: 'c4',
-    messages: [],
-    participants: [],
+    description: 'Reproduces on mobile after a background sync. Steps and logs below.',
+    authorId: 'u5',
+    createdAt: ago(14 * HOUR),
     isUnread: true,
-    replyCount: 9,
-    lastActivity: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5h ago
+    lastActivity: ago(5 * HOUR),
     position: { x: 580, y: 320 },
-    rotation: 1,
     size: 'medium',
-    borderRadius: '48% 52% 55% 45%/52% 48% 50% 50%',
+    replies: [
+      [5, 'only after a background sync'],
+      [1, 'ios or android'],
+      [5, 'both'],
+      [4, 'lorem ipsum dolor sit amet'],
+      [1, 'sounds like a dedupe key issue'],
+      [5, 'logs attached'],
+      [4, 'yep, two subscriptions'],
+      [1, 'unsubscribe on unmount then'],
+      [5, 'testing a fix'],
+    ],
   },
   {
     id: 't7',
     title: 'naming the mascot',
     channelId: 'c4',
-    messages: [],
-    participants: [],
-    replyCount: 3,
-    lastActivity: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1d ago
+    authorId: 'u7',
+    createdAt: ago(30 * HOUR),
+    lastActivity: ago(1 * DAY),
     position: { x: 220, y: 520 },
-    rotation: -2,
     size: 'small',
-    borderRadius: '60% 40% 50% 50%/55% 60% 40% 45%',
+    replies: [
+      [6, 'scatter? too on the nose'],
+      [2, 'lorem ipsum dolor'],
+      [6, 'ok noted'],
+    ],
   },
   {
     id: 't8',
     title: "what's everyone building this weekend",
     channelId: 'c4',
-    messages: [],
-    participants: [mockUsers[0], mockUsers[2], mockUsers[4], mockUsers[6]],
-    replyCount: 11,
-    lastActivity: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1d ago
+    authorId: 'u1',
+    createdAt: ago(3 * DAY),
+    lastActivity: ago(1 * DAY),
     position: { x: 450, y: 500 },
-    rotation: 0,
     size: 'medium',
-    borderRadius: '52% 48% 45% 55%/58% 42% 52% 48%',
+    replies: [
+      [0, 'finishing the parser finally'],
+      [2, 'a small game jam thing'],
+      [4, 'sleeping'],
+      [6, 'lorem ipsum dolor sit'],
+      [0, 'valid'],
+      [2, 'post screenshots'],
+      [4, 'of sleeping?'],
+      [6, 'yes'],
+      [0, 'consectetur adipiscing'],
+      [2, 'ill post monday'],
+      [4, 'looking forward to it'],
+    ],
   },
   {
     id: 't9',
     title: 'server icon meme thread',
     channelId: 'c4',
-    messages: [],
-    participants: [],
-    replyCount: 22,
-    lastActivity: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2d ago
+    description: 'Dump the worst ones here. No curation, no taste, no mercy.',
+    authorId: 'u3',
+    createdAt: ago(5 * DAY),
+    lastActivity: ago(2 * DAY),
     position: { x: 680, y: 460 },
-    rotation: 2,
     size: 'large',
-    borderRadius: '58% 42% 48% 52%/50% 50% 55% 45%',
     images: [
       'https://picsum.photos/seed/meme1/200',
       'https://picsum.photos/seed/meme2/200',
@@ -267,8 +455,34 @@ export const mockThreads: Thread[] = [
       'https://picsum.photos/seed/meme5/200',
       'https://picsum.photos/seed/meme6/200',
     ],
+    replies: [
+      [3, 'starting strong'],
+      [0, 'thats awful'],
+      [1, 'thats the point'],
+      [5, 'lorem ipsum dolor sit amet'],
+      [3, 'no notes'],
+      [0, 'delete this'],
+      [1, 'never'],
+      [5, 'consectetur adipiscing elit'],
+      [3, 'round two'],
+      [0, 'worse somehow'],
+      [1, 'improving'],
+      [5, 'sed do eiusmod'],
+      [3, 'the gradient one wins'],
+      [0, 'it really does'],
+      [1, 'tempor incididunt ut labore'],
+      [5, 'nominating it for the actual icon'],
+      [3, 'absolutely not'],
+      [0, 'democracy'],
+      [1, 'this is not a democracy'],
+      [5, 'et dolore magna aliqua'],
+      [3, 'closing nominations'],
+      [0, 'rigged'],
+    ],
   },
 ];
+
+export const mockThreads: Thread[] = threadSeeds.map(toThread);
 
 // Friends list for the Friends view (reusing some users)
 export const mockFriends: User[] = [

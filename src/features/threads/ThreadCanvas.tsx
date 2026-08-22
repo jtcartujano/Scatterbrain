@@ -1,5 +1,6 @@
 import type { Thread } from '../../lib/mockData';
 import { ThreadBubble } from './ThreadBubble';
+import { THREAD_CANVAS } from './threadLayout';
 
 interface ThreadCanvasProps {
   threads: Thread[];
@@ -18,7 +19,20 @@ export function ThreadCanvas({ threads, onThreadClick }: ThreadCanvasProps) {
         backgroundColor: 'var(--color-void)',
       }}
     >
-      <div className="relative min-h-full" style={{ minWidth: '100%' }}>
+      {/*
+        Fixed logical plane, not a viewport-sized box — stored thread
+        coordinates only mean something if every client shares the same space.
+        The wrapper above scrolls when the viewport is smaller.
+      */}
+      <div
+        className="relative"
+        style={{
+          width: `${THREAD_CANVAS.width}px`,
+          height: `${THREAD_CANVAS.height}px`,
+          minWidth: '100%',
+          minHeight: '100%',
+        }}
+      >
         {threads.map((thread) => (
           <ThreadBubble
             key={thread.id}

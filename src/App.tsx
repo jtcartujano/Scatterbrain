@@ -8,7 +8,9 @@ import { ThreadCanvas } from './features/threads/ThreadCanvas';
 import { mockServers, mockThreads } from './lib/mockData';
 
 function App() {
-  const [activeChannelId, setActiveChannelId] = useState('c2');
+  // c4 (#brainstorm) is the only channel with threads — booting anywhere else
+  // shows an empty canvas.
+  const [activeChannelId, setActiveChannelId] = useState('c4');
   const [viewMode, setViewMode] = useState<'canvas' | 'grid'>('canvas');
 
   const activeChannel = mockServers
