@@ -1,0 +1,26 @@
+/* Shadows exist only on the thread canvas — bubbles float above the dot grid.
+   Rails, panels and rows are flat, separated by hairline borders instead.
+   The "ring" shadows double as state indicators: Spark = pinned, Signal = unread.
+
+   Shadow is one tint plus three alphas, and only the alphas flip with theme —
+   a light surface cannot carry a 30% black shadow without looking dirty. */
+:root {
+  --shadow-tint: 20 21 31;
+  --shadow-a-bubble: 0.10;
+  --shadow-a-raised: 0.13;
+  --shadow-a-fan: 0.08;
+
+  --shadow-bubble: 0 8px 20px rgb(var(--shadow-tint) / var(--shadow-a-bubble));
+  --shadow-bubble-raised: 0 10px 26px rgb(var(--shadow-tint) / var(--shadow-a-raised));
+  --shadow-fan-card: 0 3px 8px rgb(var(--shadow-tint) / var(--shadow-a-fan));
+
+  --ring-pinned: 0 0 0 2px var(--color-spark), 0 0 0 4px var(--ring-spark), var(--shadow-bubble-raised);
+  --ring-unread: 0 0 0 2px var(--color-signal), 0 0 0 4px var(--ring-signal), var(--shadow-bubble-raised);
+  --ring-presence: 0 0 0 2px var(--color-surface); /* presence dot / status pip cutout */
+}
+
+.dark {
+  --shadow-a-bubble: 0.30;
+  --shadow-a-raised: 0.35;
+  --shadow-a-fan: 0.25;
+}

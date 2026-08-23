@@ -1,0 +1,13 @@
+/* Motion is restrained: colour crossfades on state, a small scale lift on the two
+   things you can pick up (thread bubbles, the New Thread button). No bounces, no
+   slide-ins. Lenis handles page scroll only. Expand/collapse uses the
+   grid-template-rows 0fr -> 1fr technique so height animates without magic numbers. */
+:root{
+  --duration-fast:150ms; /* @kind other */   /* Tailwind transition-colors default */
+  --duration-base:200ms; /* @kind other */
+  --duration-expand:220ms; /* @kind other */
+  --ease-standard:cubic-bezier(0.4,0,0.2,1); /* @kind other */
+  --hover-lift:scale(1.05); /* @kind other */
+  --transition-colors:color var(--duration-fast) var(--ease-standard),background-color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard); /* @kind other */
+  --transition-transform:transform var(--duration-fast) var(--ease-standard); /* @kind other */
+}

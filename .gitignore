@@ -17,6 +17,9 @@ tmp
 # Local working docs — not for the remote
 ROADMAP.md
 
+# Design system synced from Claude Design — local only
+.claude/skills/scatterbrain-design/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

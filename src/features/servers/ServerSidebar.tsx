@@ -89,7 +89,7 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
                     {dm.unreadCount && (
                       <span
                         className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
-                        style={{ backgroundColor: 'var(--color-signal)', color: '#0B1712' }}
+                        style={{ backgroundColor: 'var(--color-signal)', color: 'var(--color-on-signal)' }}
                       >
                         {dm.unreadCount}
                       </span>
@@ -118,7 +118,7 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
                         }`}
                         style={{
                           color: 'var(--color-ink)',
-                          backgroundColor: isExpanded ? 'rgba(236, 237, 245, 0.06)' : 'transparent',
+                          backgroundColor: isExpanded ? 'var(--fill-subtle)' : 'transparent',
                         }}
                       >
                         <ServerIcon server={server} compact={compact} />
@@ -126,7 +126,7 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
                         {server.hasInvite && (
                           <span
                             className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide"
-                            style={{ backgroundColor: 'rgba(139, 141, 168, 0.25)', color: 'var(--color-mist)' }}
+                            style={{ backgroundColor: 'var(--fill-mist-strong)', color: 'var(--color-mist)' }}
                           >
                             Invite
                           </span>
@@ -134,7 +134,7 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
                         {server.unreadCount && !server.hasInvite && (
                           <span
                             className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
-                            style={{ backgroundColor: 'var(--color-signal)', color: '#0B1712' }}
+                            style={{ backgroundColor: 'var(--color-signal)', color: 'var(--color-on-signal)' }}
                           >
                             {server.unreadCount}
                           </span>
@@ -347,7 +347,7 @@ function ChannelItem({ channel, isActive, onClick, compact }: ChannelItemProps) 
         compact ? 'px-2.5 py-1 text-[12px]' : 'px-2.5 py-1.5 text-[13px]'
       }`}
       style={{
-        backgroundColor: isActive ? 'rgba(245, 185, 66, 0.13)' : 'transparent',
+        backgroundColor: isActive ? 'var(--fill-active)' : 'transparent',
         color: isActive ? 'var(--color-ink)' : 'var(--color-mist)',
       }}
     >
@@ -379,7 +379,7 @@ function ChannelItem({ channel, isActive, onClick, compact }: ChannelItemProps) 
           className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
           style={{
             backgroundColor: 'var(--color-signal)',
-            color: '#0B1712',
+            color: 'var(--color-on-signal)',
           }}
         >
           {channel.unreadCount}

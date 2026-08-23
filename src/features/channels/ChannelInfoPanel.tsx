@@ -21,7 +21,7 @@ export function ChannelInfoPanel({ channel, onCollapse }: ChannelInfoPanelProps)
         className={`flex items-center justify-between flex-shrink-0 ${
           compact ? 'px-3 py-2.5' : 'px-4 py-3.5'
         }`}
-        style={{ borderBottom: '1px solid rgba(236, 237, 245, 0.08)' }}
+        style={{ borderBottom: '1px solid var(--border-subtle)' }}
       >
         <h2
           className={`font-bold ${compact ? 'text-[12px]' : 'text-[13.5px]'}`}

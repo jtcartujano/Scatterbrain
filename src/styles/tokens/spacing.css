@@ -1,0 +1,25 @@
+/* 4px grid (Tailwind-derived), plus the app's fixed layout widths and bubble sizes. */
+:root{
+  --space-0-5:2px;
+  --space-1:4px;
+  --space-1-5:6px;
+  --space-2:8px;
+  --space-2-5:10px;
+  --space-3:12px;
+  --space-3-5:14px;
+  --space-4:16px;
+  --space-5:20px;
+  --space-6:24px;
+
+  /* Fixed layout */
+  --width-sidebar:272px;
+  --width-info-panel:264px;
+
+  /* Thread bubble sizes */
+  --bubble-sm-w:115px;  --bubble-sm-h:85px;  --bubble-sm-pad:14px;
+  --bubble-md-w:175px;  --bubble-md-h:125px; --bubble-md-pad:18px;
+  --bubble-lg-w:255px;  --bubble-lg-h:175px; --bubble-lg-pad:24px;
+
+  /* Canvas dot grid */
+  --canvas-dot-size:22px;
+}

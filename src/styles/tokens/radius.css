@@ -1,0 +1,30 @@
+/* Shape language is split by role.
+   Chrome (rails, rows, panels, cards) uses conventional rounded rects, 4–12px.
+   Thread nodes use irregular organic blob radii — the signature shape, never on chrome. */
+:root{
+  --radius-xs:4px;    /* mention badge, invite tag */
+  --radius-sm:6px;    /* server mark, segmented-control thumb */
+  --radius-md:8px;    /* every list row, sidebar item, settings control */
+  --radius-lg:12px;   /* thread-canvas surface */
+  --radius-full:9999px; /* pills: switcher, view toggle, New Thread, counts, avatars */
+
+  /* Signature organic blob radii — thread nodes only.
+     These are NOT the source of truth. A thread's radius is derived at runtime from
+     its id by getThreadAppearance() in components/threads/threadLayout.js, and is
+     not stored anywhere. The nine values below are the real output of that function
+     for mock thread ids t1…t9, kept only so static mockups (templates, cards, slides)
+     can show true shapes without running JS. Live code must call the function.
+
+     The rule they all obey: four values drawn in 30–70%, each paired with its
+     complement, so opposite corners sum to 100%. That pairing is the organic
+     silhouette — it keeps every edge's total consistent and rules out lopsided blobs. */
+  --blob-1:36% 64% 50% 50%/34% 66% 39% 61%; /* @kind radius */
+  --blob-2:49% 51% 57% 43%/46% 54% 51% 49%; /* @kind radius */
+  --blob-3:41% 59% 36% 64%/68% 32% 43% 57%; /* @kind radius */
+  --blob-4:56% 44% 61% 39%/61% 39% 68% 32%; /* @kind radius */
+  --blob-5:56% 44% 40% 60%/51% 49% 39% 61%; /* @kind radius */
+  --blob-6:51% 49% 69% 31%/48% 52% 60% 40%; /* @kind radius */
+  --blob-7:61% 39% 53% 47%/42% 58% 65% 35%; /* @kind radius */
+  --blob-8:35% 65% 55% 45%/67% 33% 46% 54%; /* @kind radius */
+  --blob-9:64% 36% 63% 37%/32% 68% 70% 30%; /* @kind radius */
+}

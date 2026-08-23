@@ -33,12 +33,12 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
           padding: `${footprint.padding}px`,
           backgroundColor: 'var(--color-surface)',
           borderRadius,
-          border: '1px solid rgba(236, 237, 245, 0.08)',
+          border: '1px solid var(--border-subtle)',
           boxShadow: hasRing
             ? thread.isPinned
-              ? '0 0 0 2px var(--color-spark), 0 0 0 4px rgba(245, 185, 66, 0.22), 0 10px 26px rgba(0, 0, 0, 0.35)'
-              : '0 0 0 2px var(--color-signal), 0 0 0 4px rgba(79, 209, 197, 0.22), 0 10px 26px rgba(0, 0, 0, 0.35)'
-            : '0 8px 20px rgba(0, 0, 0, 0.3)',
+              ? 'var(--ring-pinned)'
+              : 'var(--ring-unread)'
+            : 'var(--shadow-bubble)',
         }}
       >
         {/* Status Indicator Dot */}
@@ -91,7 +91,7 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
                 style={{
                   width: thread.size === 'small' ? '15px' : '18px',
                   height: thread.size === 'small' ? '15px' : '18px',
-                  backgroundColor: 'rgba(139, 141, 168, 0.2)',
+                  backgroundColor: 'var(--fill-mist)',
                   borderColor: 'var(--color-surface)',
                   color: 'var(--color-ink)',
                   marginLeft: '-6px',
@@ -149,10 +149,10 @@ function ImageFan({ images, size }: { images: string[]; size: 'small' | 'medium'
             borderColor: 'var(--color-surface)',
             backgroundImage: src
               ? `url(${src})`
-              : 'linear-gradient(135deg, #A8AABF, #F2F2F6)', // blank grey-to-white "more" placeholder
+              : 'var(--color-fan-placeholder)', // blank grey-to-white "more" placeholder
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            boxShadow: '0 3px 8px rgba(0, 0, 0, 0.25)',
+            boxShadow: 'var(--shadow-fan-card)',
             zIndex: cards.length - index,
           }}
         />

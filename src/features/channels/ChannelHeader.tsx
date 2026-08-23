@@ -15,7 +15,7 @@ export function ChannelHeader({ channel, viewMode, onViewModeChange, onNewThread
       className="flex items-center justify-between px-6 py-4 border-b"
       style={{
         backgroundColor: 'var(--color-void)',
-        borderColor: 'rgba(236, 237, 245, 0.06)',
+        borderColor: 'var(--border-hairline)',
       }}
     >
       {/* Channel Name */}
@@ -35,7 +35,7 @@ export function ChannelHeader({ channel, viewMode, onViewModeChange, onNewThread
         <div
           className="flex gap-[2px] p-[3px] rounded-full"
           style={{
-            backgroundColor: 'rgba(236, 237, 245, 0.06)',
+            backgroundColor: 'var(--fill-subtle)',
           }}
         >
           <button

@@ -13,7 +13,7 @@ export function ThreadCanvas({ threads, onThreadClick }: ThreadCanvasProps) {
       className="relative flex-1 overflow-auto rounded-xl m-4"
       style={{
         background: `
-          radial-gradient(circle at center, rgba(139, 141, 168, 0.18) 1px, transparent 1px)
+          radial-gradient(circle at center, var(--dot-canvas) 1px, transparent 1px)
         `,
         backgroundSize: '22px 22px',
         backgroundColor: 'var(--color-void)',

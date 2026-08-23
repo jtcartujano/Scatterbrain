@@ -1,5 +1,16 @@
 @import 'tailwindcss';
 
+/* Design tokens, synced from the Scatterbrain design system.
+   Overlays and shadows are derived from the role colours they mean, so they
+   flip with the theme instead of being frozen at their dark-mode values. */
+@import './styles/tokens/colors.css';
+@import './styles/tokens/typography.css';
+@import './styles/tokens/spacing.css';
+@import './styles/tokens/radius.css';
+@import './styles/tokens/elevation.css';
+@import './styles/tokens/motion.css';
+
+/* Fonts are served from public/, not from the design-system package. */
 @font-face {
   font-family: 'Geist';
   src: url('/fonts/Geist-Variable.woff2') format('woff2');
@@ -16,19 +27,6 @@
   font-display: swap;
 }
 
-:root {
-  --font-sans: 'Geist', system-ui, sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, monospace;
-
-  /* Color tokens - Light mode */
-  --color-void: #F7F7FB;
-  --color-surface: #FFFFFF;
-  --color-ink: #14151F;
-  --color-mist: #63657E;
-  --color-spark: #D98F1F;
-  --color-signal: #12958A;
-}
-
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -36,14 +34,4 @@ body {
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* Dark mode - applied via class toggle from useTheme */
-.dark {
-  --color-void: #13141F;
-  --color-surface: #1C1E30;
-  --color-ink: #ECEDF5;
-  --color-mist: #8B8DA8;
-  --color-spark: #F5B942;
-  --color-signal: #4FD1C5;
 }
