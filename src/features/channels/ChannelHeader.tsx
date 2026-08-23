@@ -1,15 +1,13 @@
 import type { Channel } from '../../lib/mockData';
 
-type ViewMode = 'canvas' | 'grid';
-
 interface ChannelHeaderProps {
   channel: Channel;
-  viewMode: ViewMode;
-  onViewModeChange: (mode: ViewMode) => void;
   onNewThread: () => void;
 }
 
-export function ChannelHeader({ channel, viewMode, onViewModeChange, onNewThread }: ChannelHeaderProps) {
+// The Canvas/Grid toggle used to live here as well as in Settings. Settings owns
+// it now — see ServerSidebar — so the header carries the channel and one action.
+export function ChannelHeader({ channel, onNewThread }: ChannelHeaderProps) {
   return (
     <div
       className="flex items-center justify-between px-6 py-4 border-b"
@@ -31,35 +29,6 @@ export function ChannelHeader({ channel, viewMode, onViewModeChange, onNewThread
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        {/* View Toggle */}
-        <div
-          className="flex gap-[2px] p-[3px] rounded-full"
-          style={{
-            backgroundColor: 'var(--fill-subtle)',
-          }}
-        >
-          <button
-            onClick={() => onViewModeChange('canvas')}
-            className="px-3 py-1 rounded-full text-[11px] font-medium transition-colors"
-            style={{
-              backgroundColor: viewMode === 'canvas' ? 'var(--color-spark)' : 'transparent',
-              color: viewMode === 'canvas' ? 'var(--color-void)' : 'var(--color-mist)',
-            }}
-          >
-            Canvas
-          </button>
-          <button
-            onClick={() => onViewModeChange('grid')}
-            className="px-3 py-1 rounded-full text-[11px] font-medium transition-colors"
-            style={{
-              backgroundColor: viewMode === 'grid' ? 'var(--color-spark)' : 'transparent',
-              color: viewMode === 'grid' ? 'var(--color-void)' : 'var(--color-mist)',
-            }}
-          >
-            Grid
-          </button>
-        </div>
-
         {/* New Thread Button */}
         <button
           onClick={onNewThread}

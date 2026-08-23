@@ -13,6 +13,8 @@ interface ServerSidebarProps {
 
 type CanvasView = 'canvas' | 'grid'; // not wired to the actual canvas yet — see note below
 
+
+
 export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: ServerSidebarProps) {
   const [activeView, setActiveView] = useState<'friends' | 'servers' | 'settings'>('servers');
 
@@ -22,8 +24,8 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
 
   const { sidebarMode, setSidebarMode, compact } = useSidebarMode();
 
-  // Canvas/Grid lives here now instead of the canvas top bar. Purely presentational
-  // for the moment — remove the old toggle from the canvas header when you wire this up.
+  // Settings is now the sole home for Canvas/Grid — the duplicate in the channel
+  // header is gone. Still presentational until there's a grid to switch to.
   const [canvasView, setCanvasView] = useState<CanvasView>('canvas');
 
   const { theme, setTheme } = useTheme();
@@ -60,43 +62,6 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
               <span className="font-semibold text-[13px]" style={{ color: 'var(--color-ink)' }}>
                 Scatterbrain
               </span>
-            </div>
-
-            {/* Direct Messages */}
-            <div>
-              <SectionHeader compact={compact}>Direct Messages</SectionHeader>
-              <div className={compact ? 'space-y-0.5' : 'space-y-1'}>
-                {mockDirectMessages.map((dm) => (
-                  <button
-                    key={dm.id}
-                    className={`w-full flex items-center gap-2 rounded-lg transition-colors ${
-                      compact ? 'px-2 py-1' : 'px-2 py-1.5'
-                    }`}
-                    style={{ backgroundColor: 'transparent' }}
-                  >
-                    <div className="relative flex-shrink-0">
-                      <div
-                        className={compact ? 'w-5 h-5' : 'w-6 h-6'}
-                        style={{ backgroundColor: dm.user.color, borderRadius: '50%' }}
-                      />
-                    </div>
-                    <span
-                      className={`flex-1 font-medium truncate ${compact ? 'text-[12px]' : 'text-[13px]'}`}
-                      style={{ color: 'var(--color-ink)' }}
-                    >
-                      {dm.user.name}
-                    </span>
-                    {dm.unreadCount && (
-                      <span
-                        className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
-                        style={{ backgroundColor: 'var(--color-signal)', color: 'var(--color-on-signal)' }}
-                      >
-                        {dm.unreadCount}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* Servers */}
@@ -202,45 +167,89 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
         )}
 
         {activeView === 'friends' && (
-          <div className={compact ? 'space-y-0.5 py-1' : 'space-y-1 py-2'}>
-            {mockFriends.map((friend) => (
-              <div
-                key={friend.id}
-                className={`flex items-center rounded-lg ${compact ? 'gap-2 px-2 py-1.5' : 'gap-2.5 px-2 py-2'}`}
-              >
-                <div className="relative flex-shrink-0">
-                  <div
-                    className={compact ? 'w-6 h-6 rounded-full' : 'w-8 h-8 rounded-full'}
-                    style={{ backgroundColor: friend.color }}
-                  />
-                  <span
-                    className={`absolute -bottom-0.5 -right-0.5 rounded-full border-2 ${
-                      compact ? 'w-2 h-2' : 'w-2.5 h-2.5'
+          <div className={compact ? 'space-y-2 py-1' : 'space-y-3 py-2'}>
+            {/* Direct Messages — Friends is the people surface, so DMs belong here
+                rather than under Servers. */}
+            <div>
+              <SectionHeader compact={compact}>Direct Messages</SectionHeader>
+              <div className={compact ? 'space-y-0.5' : 'space-y-1'}>
+                {mockDirectMessages.map((dm) => (
+                  <button
+                    key={dm.id}
+                    className={`w-full flex items-center gap-2 rounded-lg transition-colors ${
+                      compact ? 'px-2 py-1' : 'px-2 py-1.5'
                     }`}
-                    style={{
-                      backgroundColor:
-                        friend.status === 'online' ? 'var(--color-signal)' : 'var(--color-mist)',
-                      borderColor: 'var(--color-surface)',
-                      opacity: friend.status === 'online' ? 1 : 0.5,
-                    }}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div
-                    className={`font-medium truncate ${compact ? 'text-[12px]' : 'text-sm'}`}
-                    style={{ color: 'var(--color-ink)' }}
+                    style={{ backgroundColor: 'transparent' }}
                   >
-                    {friend.name}
-                  </div>
-                  <div
-                    className={compact ? 'text-[10px]' : 'text-[11px]'}
-                    style={{ color: 'var(--color-mist)' }}
-                  >
-                    {friend.status === 'online' ? 'Online' : 'Offline'}
-                  </div>
-                </div>
+                    <div className="relative flex-shrink-0">
+                      <div
+                        className={compact ? 'w-5 h-5' : 'w-6 h-6'}
+                        style={{ backgroundColor: dm.user.color, borderRadius: '50%' }}
+                      />
+                    </div>
+                    <span
+                      className={`flex-1 font-medium truncate text-left ${compact ? 'text-[12px]' : 'text-[13px]'}`}
+                      style={{ color: 'var(--color-ink)' }}
+                    >
+                      {dm.user.name}
+                    </span>
+                    {dm.unreadCount && (
+                      <span
+                        className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
+                        style={{ backgroundColor: 'var(--color-signal)', color: 'var(--color-on-signal)' }}
+                      >
+                        {dm.unreadCount}
+                      </span>
+                    )}
+                  </button>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Friends */}
+            <div>
+              <SectionHeader compact={compact}>Friends</SectionHeader>
+              <div className={compact ? 'space-y-0.5' : 'space-y-1'}>
+                {mockFriends.map((friend) => (
+                  <div
+                    key={friend.id}
+                    className={`flex items-center rounded-lg ${compact ? 'gap-2 px-2 py-1.5' : 'gap-2.5 px-2 py-2'}`}
+                  >
+                    <div className="relative flex-shrink-0">
+                      <div
+                        className={compact ? 'w-6 h-6 rounded-full' : 'w-8 h-8 rounded-full'}
+                        style={{ backgroundColor: friend.color }}
+                      />
+                      <span
+                        className={`absolute -bottom-0.5 -right-0.5 rounded-full border-2 ${
+                          compact ? 'w-2 h-2' : 'w-2.5 h-2.5'
+                        }`}
+                        style={{
+                          backgroundColor:
+                            friend.status === 'online' ? 'var(--color-signal)' : 'var(--color-mist)',
+                          borderColor: 'var(--color-surface)',
+                          opacity: friend.status === 'online' ? 1 : 0.5,
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className={`font-medium truncate ${compact ? 'text-[12px]' : 'text-sm'}`}
+                        style={{ color: 'var(--color-ink)' }}
+                      >
+                        {friend.name}
+                      </div>
+                      <div
+                        className={compact ? 'text-[10px]' : 'text-[11px]'}
+                        style={{ color: 'var(--color-mist)' }}
+                      >
+                        {friend.status === 'online' ? 'Online' : 'Offline'}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

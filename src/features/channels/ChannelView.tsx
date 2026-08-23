@@ -17,7 +17,6 @@ interface ChannelViewProps {
  */
 export function ChannelView({ channel, threads }: ChannelViewProps) {
   const [previewThreadId, setPreviewThreadId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'canvas' | 'grid'>('canvas');
 
   const previewThread = threads.find((thread) => thread.id === previewThreadId) ?? null;
 
@@ -38,12 +37,7 @@ export function ChannelView({ channel, threads }: ChannelViewProps) {
 
   return (
     <>
-      <ChannelHeader
-        channel={channel}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        onNewThread={handleNewThread}
-      />
+      <ChannelHeader channel={channel} onNewThread={handleNewThread} />
 
       {previewThread && (
         <ThreadPreviewPanel
