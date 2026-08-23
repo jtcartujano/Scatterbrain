@@ -1,6 +1,8 @@
 import type { Thread } from '../../lib/mockData';
 import { mockUsers } from '../../lib/mockData';
 import { THREAD_SIZES, getThreadAppearance } from './threadLayout';
+import { ImageFan } from './ImageFan';
+import { formatTimestamp } from './formatTimestamp';
 
 interface ThreadBubbleProps {
   thread: Thread;
@@ -128,51 +130,3 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
   );
 }
 
-function ImageFan({ images, size }: { images: string[]; size: 'small' | 'medium' | 'large' }) {
-  const cardSize = size === 'small' ? 32 : size === 'medium' ? 40 : 48;
-  const shown = images.slice(0, 3);
-  // A 4th card (null = placeholder) appears only when there's more to show beyond the first 3.
-  const cards: (string | null)[] = images.length > 3 ? [...shown, null] : shown;
-  const mid = (cards.length - 1) / 2;
-
-  return (
-    <div className="flex items-center justify-center" style={{ height: cardSize }}>
-      {cards.map((src, index) => (
-        <div
-          key={index}
-          className="rounded-md border-2 flex-shrink-0"
-          style={{
-            width: cardSize,
-            height: cardSize,
-            marginLeft: index === 0 ? 0 : -cardSize * 0.5,
-            transform: `rotate(${(index - mid) * 9}deg)`,
-            borderColor: 'var(--color-surface)',
-            backgroundImage: src
-              ? `url(${src})`
-              : 'var(--color-fan-placeholder)', // blank grey-to-white "more" placeholder
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            boxShadow: 'var(--shadow-fan-card)',
-            zIndex: cards.length - index,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function formatTimestamp(date: Date): string {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const minutes = Math.floor(diff / (1000 * 60));
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  } else if (hours < 24) {
-    return `${hours}h ago`;
-  } else {
-    return `${days}d ago`;
-  }
-}
