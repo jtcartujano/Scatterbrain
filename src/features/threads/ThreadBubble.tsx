@@ -1,30 +1,92 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Thread } from '../../lib/mockData';
 import { mockUsers } from '../../lib/mockData';
-import { THREAD_SIZES, getThreadAppearance } from './threadLayout';
+import { THREAD_SIZES, getStatusDotOffset, getThreadAppearance } from './threadLayout';
 import { ImageFan } from './ImageFan';
 import { formatTimestamp } from './formatTimestamp';
 
 interface ThreadBubbleProps {
   thread: Thread;
   onClick: (threadId: string) => void;
+  /** The node the preview panel is currently showing. */
+  isPreviewed?: boolean;
+  /** Every other node, while a preview is open. */
+  isDimmed?: boolean;
 }
 
-export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
+/** How long the node stays pressed past rest as the second click commits. */
+const PRESS_DURATION = 130;
+
+export function ThreadBubble({
+  thread,
+  onClick,
+  isPreviewed = false,
+  isDimmed = false,
+}: ThreadBubbleProps) {
+  const [isPressed, setIsPressed] = useState(false);
+  const pressTimer = useRef(0);
+
+  useEffect(() => () => window.clearTimeout(pressTimer.current), []);
+
+  // The second click on a held node is the one that opens the thread, and until
+  // the thread view exists it has nothing else to show for itself. The lift
+  // returning past rest reads as the commit without adding a new gesture.
+  const handleClick = useCallback(() => {
+    if (isPreviewed) {
+      setIsPressed(true);
+      window.clearTimeout(pressTimer.current);
+      pressTimer.current = window.setTimeout(() => setIsPressed(false), PRESS_DURATION);
+    }
+    onClick(thread.id);
+  }, [isPreviewed, onClick, thread.id]);
+
   const footprint = THREAD_SIZES[thread.size];
   // Tilt and blob radius are derived from the thread id, not stored on it.
-  const { rotation, borderRadius } = getThreadAppearance(thread.id);
-  const hasRing = thread.isPinned || thread.isUnread;
+  const { rotation, borderRadius, corners } = getThreadAppearance(thread.id);
+  // ...and so, from the same corners, is where the status dot sits on the edge.
+  const dotOffset = getStatusDotOffset(corners);
   const images = thread.images ?? [];
   const hasImages = images.length > 0;
 
+  // A bubble never carries more than one outset ring. Pinned and unread win when
+  // present; the achromatic held ring only fills in for a node that has neither,
+  // so the previewed state never stacks a second stroke on top of a state one.
+  const stateStrokes = thread.isPinned
+    ? 'var(--ring-pinned-strokes)'
+    : thread.isUnread
+      ? 'var(--ring-unread-strokes)'
+      : null;
+
+  const restingShadow = thread.isPinned
+    ? 'var(--ring-pinned)'
+    : thread.isUnread
+      ? 'var(--ring-unread)'
+      : 'var(--shadow-bubble)';
+
   return (
     <button
-      onClick={() => onClick(thread.id)}
-      className="absolute cursor-pointer transition-transform hover:scale-105"
+      data-thread-id={thread.id}
+      onClick={handleClick}
+      className="absolute cursor-pointer hover:scale-105"
       style={{
         left: `${thread.position.x}px`,
         top: `${thread.position.y}px`,
+        // Rotation stays in `transform` and the lift in `scale`, so the two never
+        // clobber each other. Inline `scale` also outranks the hover class, which
+        // is the point: a held node is hover that didn't let go, not one that
+        // grows again under the pointer.
         transform: `rotate(${rotation}deg)`,
+        scale: isPressed
+          ? 'var(--press-scale)'
+          : isPreviewed
+            ? 'var(--hover-lift-scale)'
+            : undefined,
+        opacity: isDimmed ? 'var(--opacity-deselected)' : undefined,
+        zIndex: isPreviewed ? 2 : undefined,
+        transition: `transform var(--duration-expand) var(--ease-soft),
+                     scale var(--duration-expand) var(--ease-soft),
+                     box-shadow var(--duration-expand) var(--ease-soft),
+                     opacity var(--duration-base) linear`,
       }}
     >
       <div
@@ -36,18 +98,33 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
           backgroundColor: 'var(--color-surface)',
           borderRadius,
           border: '1px solid var(--border-subtle)',
-          boxShadow: hasRing
-            ? thread.isPinned
-              ? 'var(--ring-pinned)'
-              : 'var(--ring-unread)'
-            : 'var(--shadow-bubble)',
+          boxShadow: isPreviewed
+            ? `${stateStrokes ?? 'var(--ring-held)'}, var(--shadow-bubble-lifted)`
+            : restingShadow,
         }}
       >
-        {/* Status Indicator Dot */}
+        {/* Held fill — its own layer so it can crossfade. A background-image swap
+            can't animate to `none`, and the fill has to sit *over* Surface. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            borderRadius,
+            backgroundColor: 'var(--fill-subtle)',
+            opacity: isPreviewed ? 1 : 0,
+            transition: 'opacity var(--duration-base) linear',
+          }}
+        />
+
+        {/* Status dot — sits on the blob's own top-right curve, so it moves with
+            the silhouette instead of anchoring to a bounding-box corner the shape
+            never reaches. */}
         {(thread.isPinned || thread.isUnread) && (
           <div
-            className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full"
+            className="absolute w-2.5 h-2.5 rounded-full"
             style={{
+              top: dotOffset.top,
+              right: dotOffset.right,
               backgroundColor: thread.isPinned ? 'var(--color-spark)' : 'var(--color-signal)',
               boxShadow: `0 0 0 3px var(--color-surface)`,
             }}
@@ -56,7 +133,7 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
 
         {/* 1. Thread Title */}
         <h3
-          className="font-semibold line-clamp-2"
+          className="relative font-semibold line-clamp-2"
           style={{
             fontSize: thread.size === 'small' ? '11.5px' : thread.size === 'medium' ? '13px' : '14.5px',
             color: 'var(--color-ink)',
@@ -68,9 +145,11 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
 
         {/* 2. Image fan (when the thread has images) — falls back to participant avatars */}
         {hasImages ? (
-          <ImageFan images={images} size={thread.size} />
+          <div className="relative">
+            <ImageFan images={images} size={thread.size} />
+          </div>
         ) : (
-          <div className="flex items-center">
+          <div className="relative flex items-center">
             {thread.participants.slice(0, 3).map((participant, index) => {
               const user = mockUsers.find((u) => u.id === participant.id) || participant;
               return (
@@ -107,7 +186,7 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
 
         {/* 3. Metadata — replies, last activity, and (optionally) image count */}
         <div
-          className="flex items-center gap-1.5"
+          className="relative flex items-center gap-1.5"
           style={{
             fontSize: '10px',
             fontFamily: 'var(--font-mono)',
@@ -129,4 +208,3 @@ export function ThreadBubble({ thread, onClick }: ThreadBubbleProps) {
     </button>
   );
 }
-

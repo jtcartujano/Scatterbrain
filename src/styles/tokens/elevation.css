@@ -8,19 +8,34 @@
   --shadow-tint: 20 21 31;
   --shadow-a-bubble: 0.10;
   --shadow-a-raised: 0.13;
+  --shadow-a-lifted: 0.18;
   --shadow-a-fan: 0.08;
 
   --shadow-bubble: 0 8px 20px rgb(var(--shadow-tint) / var(--shadow-a-bubble));
   --shadow-bubble-raised: 0 10px 26px rgb(var(--shadow-tint) / var(--shadow-a-raised));
+  /* One step past raised, for the single node held open by the preview panel. */
+  --shadow-bubble-lifted: 0 20px 44px rgb(var(--shadow-tint) / var(--shadow-a-lifted));
   --shadow-fan-card: 0 3px 8px rgb(var(--shadow-tint) / var(--shadow-a-fan));
 
-  --ring-pinned: 0 0 0 2px var(--color-spark), 0 0 0 4px var(--ring-spark), var(--shadow-bubble-raised);
-  --ring-unread: 0 0 0 2px var(--color-signal), 0 0 0 4px var(--ring-signal), var(--shadow-bubble-raised);
+  /* The strokes are split from the shadow so a previewed node can pair them with
+     --shadow-bubble-lifted instead. --ring-pinned/--ring-unread are unchanged in
+     both meaning and value. */
+  --ring-pinned-strokes: 0 0 0 2px var(--color-spark), 0 0 0 4px var(--ring-spark);
+  --ring-unread-strokes: 0 0 0 2px var(--color-signal), 0 0 0 4px var(--ring-signal);
+  --ring-pinned: var(--ring-pinned-strokes), var(--shadow-bubble-raised);
+  --ring-unread: var(--ring-unread-strokes), var(--shadow-bubble-raised);
+
+  /* The previewed node's own ring. Achromatic, because Spark means pinned or
+     selected and Signal means new — both exclusively. It only ever appears on a
+     node with no state ring of its own: a bubble never carries two outset rings. */
+  --ring-held: 0 0 0 1.5px color-mix(in oklab, var(--color-ink) 24%, transparent);
+
   --ring-presence: 0 0 0 2px var(--color-surface); /* presence dot / status pip cutout */
 }
 
 .dark {
   --shadow-a-bubble: 0.30;
   --shadow-a-raised: 0.35;
+  --shadow-a-lifted: 0.55;
   --shadow-a-fan: 0.25;
 }

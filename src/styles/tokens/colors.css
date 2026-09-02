@@ -30,6 +30,12 @@
   --fill-mist-strong: color-mix(in oklab, var(--color-mist) 25%, transparent);
   --dot-canvas: color-mix(in oklab, var(--color-mist) 18%, transparent);
 
+  /* Everything the preview panel isn't about, while it's open. Deliberately not
+     the design system's --opacity-disabled, which happens to share the number:
+     "not currently selected" and "you can't use this" want to move apart the
+     first time either is retuned. */
+  --opacity-deselected: 0.45;
+
   /* Semantic aliases */
   --surface-app: var(--color-void);
   --surface-panel: var(--color-surface);

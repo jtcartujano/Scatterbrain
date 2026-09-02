@@ -1,13 +1,31 @@
 /* Motion is restrained: colour crossfades on state, a small scale lift on the two
    things you can pick up (thread bubbles, the New Thread button). No bounces, no
-   slide-ins. Lenis handles page scroll only. Expand/collapse uses the
-   grid-template-rows 0fr -> 1fr technique so height animates without magic numbers. */
+   spinners. Lenis handles page scroll only.
+
+   Two curves, and they mean different things. --ease-standard is the interface
+   curve: rows, hovers, colour. --ease-soft is a softer ease-out used wherever
+   something with weight travels — the preview panel arriving, a node latching,
+   the plane being scrolled to seat a node. Nothing in this product accelerates
+   into a stop, so the soft curve's long tail is the whole of its character.
+
+   The preview panel set the timings. Note it is the *panel* that moves: the
+   canvas below takes its new height in one frame and slides, rather than
+   squeezing across the animation. */
 :root{
-  --duration-fast:150ms; /* @kind other */   /* Tailwind transition-colors default */
-  --duration-base:200ms; /* @kind other */
-  --duration-expand:220ms; /* @kind other */
+  --duration-fast:150ms; /* @kind other */   /* colour crossfades, short opacity fades */
+  --duration-base:200ms; /* @kind other */   /* state opacity on a node */
+  --duration-expand:240ms; /* @kind other */ /* the preview row, and a node latching */
+  --duration-panel:260ms; /* @kind other */  /* the panel's own arrival */
+  --duration-plane:300ms; /* @kind other */  /* scrolling the plane to seat a node */
+
   --ease-standard:cubic-bezier(0.4,0,0.2,1); /* @kind other */
-  --hover-lift:scale(1.05); /* @kind other */
+  --ease-soft:cubic-bezier(0.22,0.8,0.28,1); /* @kind other */
+
+  --hover-lift-scale:1.05; /* @kind other */   /* for the standalone `scale` property */
+  --hover-lift:scale(var(--hover-lift-scale)); /* @kind other */
+  /* The lift returning past rest, as the second click commits. */
+  --press-scale:0.985; /* @kind other */
+
   --transition-colors:color var(--duration-fast) var(--ease-standard),background-color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard); /* @kind other */
   --transition-transform:transform var(--duration-fast) var(--ease-standard); /* @kind other */
 }

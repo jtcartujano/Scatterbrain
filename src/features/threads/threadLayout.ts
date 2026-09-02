@@ -5,6 +5,23 @@
  */
 export const THREAD_CANVAS = { width: 1000, height: 760 } as const;
 
+/**
+ * How far the plane is allowed to shrink when the preview panel shortens the
+ * canvas. Below this the 10px mono metadata row stops being readable — 0.72 puts
+ * it at 7.2px, and whatever the floor cuts off, the canvas scrolls for.
+ */
+export const PLANE_SCALE_FLOOR = 0.72;
+
+/**
+ * The plane zooms out to keep itself visible as the canvas gets shorter, rather
+ * than being clipped. It never scales *up*: past the plane's own height there is
+ * nothing more to reveal, and 1:1 is where the type was drawn.
+ */
+export function getPlaneScale(canvasHeight: number): number {
+  if (canvasHeight <= 0) return 1;
+  return Math.max(PLANE_SCALE_FLOOR, Math.min(1, canvasHeight / THREAD_CANVAS.height));
+}
+
 /** Bubble footprints. Persisted `size` picks one; the footprint never changes under a thread. */
 export const THREAD_SIZES = {
   small: { width: 115, minHeight: 85, padding: 14 },
@@ -12,9 +29,17 @@ export const THREAD_SIZES = {
   large: { width: 255, minHeight: 175, padding: 24 },
 } as const;
 
+/**
+ * The four values the blob is built from, each paired with its complement so
+ * opposite corners sum to 100%. Kept alongside the assembled string because the
+ * status dot has to find the same silhouette the radius describes.
+ */
+export type BlobCorners = { a: number; b: number; c: number; d: number };
+
 export type ThreadAppearance = {
   rotation: number;
   borderRadius: string;
+  corners: BlobCorners;
 };
 
 /**
@@ -73,7 +98,40 @@ export function getThreadAppearance(threadId: string): ThreadAppearance {
   const [a, b, c, d] = [corner(), corner(), corner(), corner()];
   const borderRadius = `${a}% ${100 - a}% ${b}% ${100 - b}%/${c}% ${100 - c}% ${d}% ${100 - d}%`;
 
-  const appearance = { rotation, borderRadius };
+  const appearance = { rotation, borderRadius, corners: { a, b, c, d } };
   cache.set(threadId, appearance);
   return appearance;
+}
+
+/** The dot is 10px across, so half of it is what an offset has to account for. */
+const STATUS_DOT_SIZE = 10;
+
+/** Pulled this far in along the diagonal, so the dot sits inside the edge rather
+ *  than straddling it — the placement every canvas design uses. */
+const STATUS_DOT_INSET = 3;
+
+/** cos 45° subtracted from 1: how far in from a corner the curve's midpoint sits. */
+const CORNER_45 = 1 - Math.SQRT1_2;
+
+/**
+ * Where the pinned / unread dot goes: on the blob's own top-right curve.
+ *
+ * `border-radius` orders corners top-left, top-right, bottom-right, bottom-left,
+ * horizontal radii first — so against the string the generator writes, the
+ * top-right corner's radii are `(100 − a)%` of the width and `(100 − c)%` of the
+ * height. That corner is a quarter ellipse centred at `(W − rx, ry)`, and the
+ * point 45° along it is `(W − 0.2929·rx, 0.2929·ry)`.
+ *
+ * Returned as percentages rather than pixels on purpose: a bubble grows past its
+ * `minHeight` when a title wraps to two lines, and the browser resolves these
+ * against the real box exactly as it resolves the radius itself. Anchoring to the
+ * bounding-box corner instead — which is what shipped — leaves the dot floating in
+ * empty space, because on a blob that corner isn't part of the shape.
+ */
+export function getStatusDotOffset(corners: BlobCorners) {
+  const half = STATUS_DOT_SIZE / 2 - STATUS_DOT_INSET;
+  return {
+    top: `calc(${(CORNER_45 * (100 - corners.c)).toFixed(3)}% - ${half}px)`,
+    right: `calc(${(CORNER_45 * (100 - corners.a)).toFixed(3)}% - ${half}px)`,
+  };
 }

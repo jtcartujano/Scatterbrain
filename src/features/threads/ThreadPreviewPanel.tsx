@@ -1,12 +1,18 @@
 import { useEffect } from 'react';
-import type { Thread } from '../../lib/mockData';
-import { ImageFan } from './ImageFan';
+import type { Channel, Thread } from '../../lib/mockData';
+import { ImageGrid } from './ImageGrid';
 import { formatTimestamp } from './formatTimestamp';
 
 interface ThreadPreviewPanelProps {
   thread: Thread;
+  channel: Channel;
+  /** False while the panel is still mounted but collapsing shut. */
+  open: boolean;
   onDismiss: () => void;
 }
+
+const AVATARS_SHOWN = 5;
+const NAMES_SHOWN = 3;
 
 /**
  * The peek half of click-once-to-preview / click-again-to-open.
@@ -20,27 +26,49 @@ interface ThreadPreviewPanelProps {
  * blob radius, no shadow. Only thread nodes cast shadows.
  *
  * This and the open thread view are the only places a description is ever seen.
+ *
+ * Sizing and inset are content-driven with neither cap nor margin of its own —
+ * the animating row in `ChannelView` owns both. A percentage max-height here
+ * would resolve against a grid area this element is itself sizing, and the row
+ * has to measure the inset to animate to the right height.
  */
-export function ThreadPreviewPanel({ thread, onDismiss }: ThreadPreviewPanelProps) {
+export function ThreadPreviewPanel({
+  thread,
+  channel,
+  open,
+  onDismiss,
+}: ThreadPreviewPanelProps) {
   useEffect(() => {
+    if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onDismiss();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onDismiss]);
+  }, [open, onDismiss]);
 
   const images = thread.images ?? [];
+  const hasImages = images.length > 0;
+
+  // Channel, then state. All Mist, no colour and no dot: Spark on chrome already
+  // means selected, and the panel is the one surface that's definitionally
+  // selected already. The word does the work instead of a second coloured mark.
+  // Honest because unread clears on opening a thread in full, not on previewing it.
+  const kicker = [
+    `#${channel.name}`,
+    thread.isPinned ? 'pinned' : null,
+    thread.isUnread ? 'unread' : null,
+  ].filter(Boolean);
+
+  // Author names are user content, so they stay lowercase.
+  const names = thread.participants.slice(0, NAMES_SHOWN).map((p) => p.name).join(', ');
+  const unnamed = thread.participants.length - NAMES_SHOWN;
 
   return (
     <section
-      className="relative flex flex-shrink-0 items-start overflow-y-auto"
+      className="relative flex items-start"
       style={{
-        // Sizes to content up to a cap — the provisional answer while
-        // "fixed 50/50 vs content-sized" is still open.
-        maxHeight: '50%',
         gap: 'var(--space-6)',
-        margin: 'var(--space-4) var(--space-4) 0',
         padding: 'var(--space-5)',
         backgroundColor: 'var(--color-surface)',
         border: '1px solid var(--border-subtle)',
@@ -48,6 +76,24 @@ export function ThreadPreviewPanel({ thread, onDismiss }: ThreadPreviewPanelProp
       }}
     >
       <div className="flex min-w-0 flex-1 flex-col" style={{ gap: 'var(--space-3)' }}>
+        <div
+          className="flex items-center"
+          style={{
+            gap: 'var(--space-1-5)',
+            paddingRight: 'var(--space-6)',
+            fontSize: 'var(--text-md)',
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--color-mist)',
+          }}
+        >
+          {kicker.map((part, index) => (
+            <span key={part} className="flex items-center" style={{ gap: 'var(--space-1-5)' }}>
+              {index > 0 && <span>·</span>}
+              <span>{part}</span>
+            </span>
+          ))}
+        </div>
+
         <h2
           style={{
             margin: 0,
@@ -77,10 +123,10 @@ export function ThreadPreviewPanel({ thread, onDismiss }: ThreadPreviewPanelProp
           </p>
         )}
 
-        <div className="flex flex-wrap items-center" style={{ gap: 'var(--space-3)' }}>
-          {thread.participants.length > 0 && (
-            <div className="flex items-center">
-              {thread.participants.slice(0, 5).map((participant, index) => (
+        {thread.participants.length > 0 && (
+          <div className="flex min-w-0 items-center" style={{ gap: 'var(--space-2-5)' }}>
+            <div className="flex shrink-0 items-center">
+              {thread.participants.slice(0, AVATARS_SHOWN).map((participant, index) => (
                 <div
                   key={participant.id}
                   className="rounded-full border-2"
@@ -94,7 +140,7 @@ export function ThreadPreviewPanel({ thread, onDismiss }: ThreadPreviewPanelProp
                   }}
                 />
               ))}
-              {thread.participants.length > 5 && (
+              {thread.participants.length > AVATARS_SHOWN && (
                 <div
                   className="flex items-center justify-center rounded-full border-2 font-semibold"
                   style={{
@@ -107,35 +153,45 @@ export function ThreadPreviewPanel({ thread, onDismiss }: ThreadPreviewPanelProp
                     color: 'var(--color-ink)',
                   }}
                 >
-                  +{thread.participants.length - 5}
+                  +{thread.participants.length - AVATARS_SHOWN}
                 </div>
               )}
             </div>
-          )}
 
-          <span
-            className="flex items-center"
-            style={{
-              gap: 'var(--space-1-5)',
-              fontSize: 'var(--text-md)',
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--color-mist)',
-            }}
-          >
-            <span>{thread.replyCount} replies</span>
-            <span>•</span>
-            <span>{formatTimestamp(thread.lastActivity)}</span>
-            {images.length > 0 && (
-              <>
-                <span>•</span>
-                <span>{images.length} images</span>
-              </>
-            )}
-          </span>
-        </div>
+            <span
+              className="truncate"
+              style={{
+                fontSize: 'var(--text-base-plus)',
+                fontWeight: 'var(--weight-medium)',
+                color: 'var(--color-ink)',
+                opacity: 0.86,
+              }}
+            >
+              {names}
+              {unnamed > 0 && (
+                <span style={{ color: 'var(--color-mist)' }}> +{unnamed} more</span>
+              )}
+            </span>
+          </div>
+        )}
+
+        <span
+          className="flex items-center"
+          style={{
+            gap: 'var(--space-1-5)',
+            fontSize: 'var(--text-md)',
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--color-mist)',
+          }}
+        >
+          <span>{thread.replyCount} replies</span>
+          <span>•</span>
+          <span>{formatTimestamp(thread.lastActivity)}</span>
+          {/* No image count here — the grid's own label carries it. */}
+        </span>
       </div>
 
-      {images.length > 0 && <ImageFan images={images} size="large" />}
+      {hasImages && <ImageGrid images={images} />}
 
       <button
         type="button"

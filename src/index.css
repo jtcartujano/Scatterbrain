@@ -27,6 +27,70 @@
   font-display: swap;
 }
 
+/* The thread preview. Heights and offsets are set inline from measurements; the
+   transitions live here so a reduced-motion preference can switch them off — the
+   panel still opens and closes, it just arrives.
+
+   Only the panel moves. The canvas below takes its new height in one frame and is
+   pushed down, rather than squeezing across the animation. */
+.preview-row {
+  transition:
+    grid-template-rows var(--duration-expand) var(--ease-soft),
+    opacity var(--duration-fast) linear;
+}
+
+.preview-panel {
+  transition: transform var(--duration-panel) var(--ease-soft);
+}
+
+/* Runs from the panel's edge down to the previewed node. Height is written
+   directly to the element on every scroll, so it tracks the field. */
+.tether {
+  transition:
+    height var(--duration-panel) var(--ease-soft) 50ms,
+    opacity var(--duration-fast) linear;
+}
+
+/* A scroll container whose scrollbar the design draws itself. Used by the thread
+   canvas, which replaces it with `.scroll-indicator` — never hide one without
+   putting something in its place, or nothing says the content continues. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Stands in for that scrollbar. Sized and placed from the scroll position, and
+   only visible when there is more canvas than fits. */
+.scroll-indicator {
+  transition: opacity var(--duration-base) linear;
+}
+
+/* The plane zooms out as the canvas shortens. The sizer carries the same scale as
+   layout, so the two have to travel together or the scroll extent would lead the
+   picture. Same duration, same curve, so they stay in step. */
+.plane,
+.plane-sizer {
+  transition:
+    transform var(--duration-plane) var(--ease-soft),
+    width var(--duration-plane) var(--ease-soft),
+    height var(--duration-plane) var(--ease-soft),
+    background-size var(--duration-plane) var(--ease-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-row,
+  .preview-panel,
+  .tether,
+  .scroll-indicator,
+  .plane,
+  .plane-sizer {
+    transition: none;
+  }
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
