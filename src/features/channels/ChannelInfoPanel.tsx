@@ -1,6 +1,6 @@
 import type { Channel } from '../../lib/mockData';
 import { mockUsers, mockThreads, BRAINSTORM_MEMBER_COUNT } from '../../lib/mockData';
-import { useSidebarMode } from '../../hooks/useSidebarMode';
+import { useSettings } from '../../hooks/useSettings';
 
 interface ChannelInfoPanelProps {
   channel: Channel;
@@ -8,7 +8,7 @@ interface ChannelInfoPanelProps {
 }
 
 export function ChannelInfoPanel({ channel, onCollapse }: ChannelInfoPanelProps) {
-  const { compact } = useSidebarMode();
+  const { compact } = useSettings();
 
   const pinnedThread = mockThreads.find(
     (thread) => thread.channelId === channel.id && thread.isPinned

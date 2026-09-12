@@ -1,7 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { TopSwitcher } from '../../components/TopSwitcher';
-import { useTheme, type Theme } from '../../hooks/useTheme';
-import { useSidebarMode, type SidebarMode } from '../../hooks/useSidebarMode';
+import {
+  useSettings,
+  type Density,
+  type Theme,
+  type ThreadView,
+} from '../../hooks/useSettings';
 import type { Server, Channel } from '../../lib/mockData';
 import { mockFriends, mockDirectMessages } from '../../lib/mockData';
 
@@ -11,10 +15,6 @@ interface ServerSidebarProps {
   onChannelSelect: (channelId: string) => void;
 }
 
-type CanvasView = 'canvas' | 'grid'; // not wired to the actual canvas yet — see note below
-
-
-
 export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: ServerSidebarProps) {
   const [activeView, setActiveView] = useState<'friends' | 'servers' | 'settings'>('servers');
 
@@ -22,13 +22,11 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
     () => new Set(servers[0] ? [servers[0].id] : [])
   );
 
-  const { sidebarMode, setSidebarMode, compact } = useSidebarMode();
-
-  // Settings is now the sole home for Canvas/Grid — the duplicate in the channel
-  // header is gone. Still presentational until there's a grid to switch to.
-  const [canvasView, setCanvasView] = useState<CanvasView>('canvas');
-
-  const { theme, setTheme } = useTheme();
+  // Settings is the sole home for Canvas/Grid — the duplicate in the channel header
+  // is gone. `threadView` is shared state now rather than local, so it can reach
+  // `ChannelView` in a sibling subtree; the grid it selects doesn't exist yet.
+  const { theme, setTheme, density, setDensity, compact, threadView, setThreadView } =
+    useSettings();
 
   const toggleServer = (serverId: string) => {
     setExpandedServerIds((prev) => {
@@ -37,7 +35,7 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
         next.delete(serverId);
       } else {
         // Standard = single-open accordion. Compact = several can stay open at once.
-        if (sidebarMode === 'standard') next.clear();
+        if (density === 'standard') next.clear();
         next.add(serverId);
       }
       return next;
@@ -267,9 +265,9 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
             </SettingRow>
 
             <SettingRow label="Sidebar">
-              <SegmentedControl<SidebarMode>
-                value={sidebarMode}
-                onChange={setSidebarMode}
+              <SegmentedControl<Density>
+                value={density}
+                onChange={setDensity}
                 options={[
                   { value: 'standard', label: 'Standard' },
                   { value: 'compact', label: 'Compact' },
@@ -277,10 +275,12 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
               />
             </SettingRow>
 
-            <SettingRow label="Thread view" hint="Not wired up yet">
-              <SegmentedControl<CanvasView>
-                value={canvasView}
-                onChange={setCanvasView}
+            {/* The setting is real and persists now; what it's missing is a grid to
+                switch to. The hint goes when `ThreadGrid` lands. */}
+            <SettingRow label="Thread view" hint="Grid view in design">
+              <SegmentedControl<ThreadView>
+                value={threadView}
+                onChange={setThreadView}
                 options={[
                   { value: 'canvas', label: 'Canvas' },
                   { value: 'grid', label: 'Grid' },
