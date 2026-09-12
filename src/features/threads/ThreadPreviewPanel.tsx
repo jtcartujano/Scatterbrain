@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { Channel, Thread } from '../../lib/mockData';
 import { ImageGrid } from './ImageGrid';
+import { ParticipantStack } from './ParticipantStack';
 import { formatTimestamp } from './formatTimestamp';
 
 interface ThreadPreviewPanelProps {
@@ -8,6 +9,8 @@ interface ThreadPreviewPanelProps {
   channel: Channel;
   /** False while the panel is still mounted but collapsing shut. */
   open: boolean;
+  /** The panel is the door to the thread in full. */
+  onOpen: () => void;
   onDismiss: () => void;
 }
 
@@ -15,12 +18,18 @@ const AVATARS_SHOWN = 5;
 const NAMES_SHOWN = 3;
 
 /**
- * The peek half of click-once-to-preview / click-again-to-open.
+ * The peek half of click-to-preview / click-the-peek-to-open.
  *
- * Occupies the top half of the main content region; the canvas stays live and
- * scrollable below, so the clicked bubble remains visible and a second click on
- * it enters the thread. That means this panel deliberately has **no open
- * affordance of its own** — adding one would give the pattern two doors.
+ * Occupies the top half of the main content region; the view below stays live and
+ * scrollable, so the thread you clicked is still there — and clicking it again
+ * puts the panel away. The panel itself is therefore the **one** door to the
+ * thread in full: still one affordance, not two, but moved off the node, which
+ * had been carrying both jobs with only a console log to tell them apart.
+ *
+ * The whole surface is the target rather than a button inside it. A button would
+ * be the second door the original design refused, and it would have to sit
+ * somewhere — every place it could go either competes with the title or crowds
+ * the dismiss X.
  *
  * It is chrome, not a thread node: conventional rounded rect, no rotation, no
  * blob radius, no shadow. Only thread nodes cast shadows.
@@ -36,6 +45,7 @@ export function ThreadPreviewPanel({
   thread,
   channel,
   open,
+  onOpen,
   onDismiss,
 }: ThreadPreviewPanelProps) {
   useEffect(() => {
@@ -66,7 +76,19 @@ export function ThreadPreviewPanel({
 
   return (
     <section
-      className="relative flex items-start"
+      onClick={onOpen}
+      // The panel is one target, so it announces itself as one. Not a `<button>`:
+      // the dismiss X lives inside it, and a button inside a button is invalid.
+      role="button"
+      tabIndex={0}
+      aria-label={`Open thread: ${thread.title}`}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      className="relative flex cursor-pointer items-start"
       style={{
         gap: 'var(--space-6)',
         padding: 'var(--space-5)',
@@ -125,38 +147,14 @@ export function ThreadPreviewPanel({
 
         {thread.participants.length > 0 && (
           <div className="flex min-w-0 items-center" style={{ gap: 'var(--space-2-5)' }}>
-            <div className="flex shrink-0 items-center">
-              {thread.participants.slice(0, AVATARS_SHOWN).map((participant, index) => (
-                <div
-                  key={participant.id}
-                  className="rounded-full border-2"
-                  style={{
-                    width: '24px',
-                    height: '24px',
-                    backgroundColor: participant.color,
-                    borderColor: 'var(--color-surface)',
-                    marginLeft: index > 0 ? '-8px' : '0',
-                    zIndex: thread.participants.length - index,
-                  }}
-                />
-              ))}
-              {thread.participants.length > AVATARS_SHOWN && (
-                <div
-                  className="flex items-center justify-center rounded-full border-2 font-semibold"
-                  style={{
-                    width: '24px',
-                    height: '24px',
-                    marginLeft: '-8px',
-                    fontSize: 'var(--text-sm)',
-                    backgroundColor: 'var(--fill-mist)',
-                    borderColor: 'var(--color-surface)',
-                    color: 'var(--color-ink)',
-                  }}
-                >
-                  +{thread.participants.length - AVATARS_SHOWN}
-                </div>
-              )}
-            </div>
+            <ParticipantStack
+              participants={thread.participants}
+              size={24}
+              overlap={8}
+              max={AVATARS_SHOWN}
+              chipFill="var(--fill-mist)"
+              stackOrder="first-on-top"
+            />
 
             <span
               className="truncate"
@@ -195,7 +193,12 @@ export function ThreadPreviewPanel({
 
       <button
         type="button"
-        onClick={onDismiss}
+        // Stops the panel underneath reading this as "open" — dismissing is the
+        // one thing you can do here that isn't opening the thread.
+        onClick={(event) => {
+          event.stopPropagation();
+          onDismiss();
+        }}
         aria-label="Dismiss preview"
         className="absolute cursor-pointer leading-none"
         style={{

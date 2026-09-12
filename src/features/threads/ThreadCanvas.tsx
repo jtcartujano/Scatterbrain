@@ -2,6 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import type { Thread } from '../../lib/mockData';
 import { useLenis } from '../../hooks/useLenis';
 import { ThreadBubble } from './ThreadBubble';
+import { ScrollIndicator } from './ScrollIndicator';
+import { syncScrollIndicator } from './scrollGeometry';
+import { ThreadEmptyState } from './ThreadEmptyState';
 import { THREAD_CANVAS, getPlaneScale } from './threadLayout';
 import { nudgeIntoView } from './planeScroll';
 
@@ -19,9 +22,6 @@ const TETHER_MIN = 14;
 
 /** Matches --canvas-dot-size. The grid scales with the plane. */
 const DOT_GRID = 22;
-
-/** Short enough to stay out of the way, long enough to be a grabbable-looking mark. */
-const INDICATOR_MIN = 28;
 
 export function ThreadCanvas({
   threads,
@@ -82,23 +82,10 @@ export function ThreadCanvas({
       }
     }
 
-    if (indicator) {
-      // Stands in for the native scrollbar, which is hidden. Only reachable state
-      // here is "there is more canvas than fits" — which happens exactly when the
-      // scale floor has bound and the plane has stopped shrinking.
-      const scrollable = frame.scrollHeight - frame.clientHeight;
-      if (scrollable <= 1) {
-        indicator.style.opacity = '0';
-      } else {
-        const size = Math.max(
-          INDICATOR_MIN,
-          frame.clientHeight * (frame.clientHeight / frame.scrollHeight),
-        );
-        indicator.style.height = `${size}px`;
-        indicator.style.top = `${(frame.scrollTop / scrollable) * (frame.clientHeight - size)}px`;
-        indicator.style.opacity = '0.28';
-      }
-    }
+    // Stands in for the native scrollbar, which is hidden. On the canvas the only
+    // reachable state is "there is more canvas than fits" — which happens exactly
+    // when the scale floor has bound and the plane has stopped shrinking.
+    syncScrollIndicator(frame, indicator);
   }, [previewThreadId, scale]);
 
   // A layout effect, not a timer: the canvas already has its final height by this
@@ -198,6 +185,15 @@ export function ThreadCanvas({
         </div>
       </div>
 
+      {/* Drawn over the frame rather than inside it, so it stays centred on what
+          you can see rather than on the plane — an empty plane is still 1000×760
+          and would put this wherever the scroll happens to be. */}
+      {threads.length === 0 && (
+        <div className="pointer-events-none absolute inset-0">
+          <ThreadEmptyState />
+        </div>
+      )}
+
       <div
         ref={tetherRef}
         aria-hidden="true"
@@ -214,12 +210,7 @@ export function ThreadCanvas({
         />
       </div>
 
-      <div
-        ref={indicatorRef}
-        aria-hidden="true"
-        className="scroll-indicator pointer-events-none absolute right-1.25 w-0.75 rounded-full"
-        style={{ top: 0, height: 0, opacity: 0, backgroundColor: 'var(--color-mist)' }}
-      />
+      <ScrollIndicator ref={indicatorRef} />
     </div>
   );
 }

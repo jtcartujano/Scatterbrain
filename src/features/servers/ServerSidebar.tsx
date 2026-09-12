@@ -23,8 +23,8 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
   );
 
   // Settings is the sole home for Canvas/Grid — the duplicate in the channel header
-  // is gone. `threadView` is shared state now rather than local, so it can reach
-  // `ChannelView` in a sibling subtree; the grid it selects doesn't exist yet.
+  // is gone. `threadView` is shared state rather than local, so it can reach
+  // `ChannelView` in a sibling subtree, which is the whole reason it lives here.
   const { theme, setTheme, density, setDensity, compact, threadView, setThreadView } =
     useSettings();
 
@@ -275,9 +275,7 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
               />
             </SettingRow>
 
-            {/* The setting is real and persists now; what it's missing is a grid to
-                switch to. The hint goes when `ThreadGrid` lands. */}
-            <SettingRow label="Thread view" hint="Grid view in design">
+            <SettingRow label="Thread view">
               <SegmentedControl<ThreadView>
                 value={threadView}
                 onChange={setThreadView}

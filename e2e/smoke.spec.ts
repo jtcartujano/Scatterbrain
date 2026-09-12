@@ -1,10 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
+  CHANNELS,
+  EMPTY_STATE,
   PREVIEW_PANEL,
   THREADS,
   channel,
   collectBrowserErrors,
   openPreview,
+  seedSettings,
   thread,
 } from './helpers';
 
@@ -34,23 +37,33 @@ test.describe('thread canvas', () => {
     expect(errors).toEqual([]);
   });
 
-  test('previews on the first click and opens on the second', async ({ page }) => {
+  test('previews on the first click and closes on the second', async ({ page }) => {
     const errors = collectBrowserErrors(page);
-    // The second click's only outward sign until 2.4 builds the open thread view.
-    const opened: string[] = [];
-    page.on('console', (message) => {
-      if (message.text().startsWith('Open thread:')) opened.push(message.text());
-    });
-
     await page.goto('/');
 
     const node = page.locator(thread(THREADS.pinned));
     await node.click();
     await expect(previewTitle(page)).toBeVisible();
-    expect(opened).toEqual([]);
 
     await node.click();
-    await expect.poll(() => opened).toEqual([`Open thread: ${THREADS.pinned}`]);
+    await expect(previewTitle(page)).toBeHidden();
+
+    expect(errors).toEqual([]);
+  });
+
+  /** A different thread swaps the panel over rather than closing it. */
+  test('a second thread swaps the preview rather than closing it', async ({ page }) => {
+    const errors = collectBrowserErrors(page);
+    await page.goto('/');
+
+    await openPreview(page, THREADS.pinned);
+    await expect(previewTitle(page)).toBeVisible();
+
+    await page.locator(thread(THREADS.plain)).click();
+    await expect(previewTitle(page)).toBeHidden();
+    await expect(
+      page.locator(PREVIEW_PANEL).getByRole('heading', { name: 'new emoji pack: rough sketches' }),
+    ).toBeVisible();
 
     expect(errors).toEqual([]);
   });
@@ -83,6 +96,129 @@ test.describe('thread canvas', () => {
     expect(errors).toEqual([]);
   });
 });
+
+/**
+ * The same paths again, against the other view.
+ *
+ * Worth repeating rather than trusting the canvas run, because `ThreadGrid` brings
+ * its own `ResizeObserver` and its own effects, and this suite exists precisely for
+ * the class of failure `tsc` and `oxlint` cannot see. The interaction it is
+ * checking is deliberately identical — preview once, open twice, Esc or the X —
+ * so if these ever need to diverge from the canvas block above, something has gone
+ * wrong with the idea rather than the code.
+ */
+test.describe('thread grid', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSettings(page, { threadView: 'grid' });
+  });
+
+  test('loads without the browser complaining', async ({ page }) => {
+    const errors = collectBrowserErrors(page);
+
+    await page.goto('/');
+    await expect(page.locator(thread(THREADS.pinned))).toBeVisible();
+
+    expect(errors).toEqual([]);
+  });
+
+  test('previews on the first click and closes on the second', async ({ page }) => {
+    const errors = collectBrowserErrors(page);
+    await page.goto('/');
+
+    const card = page.locator(thread(THREADS.pinned));
+    await card.click();
+    await expect(previewTitle(page)).toBeVisible();
+
+    await card.click();
+    await expect(previewTitle(page)).toBeHidden();
+
+    expect(errors).toEqual([]);
+  });
+
+  test('dismisses with Escape and with the X', async ({ page }) => {
+    const errors = collectBrowserErrors(page);
+    await page.goto('/');
+
+    await openPreview(page, THREADS.pinned);
+    await page.keyboard.press('Escape');
+    await expect(previewTitle(page)).toBeHidden();
+
+    await openPreview(page, THREADS.pinned);
+    await page.getByLabel('Dismiss preview').click();
+    await expect(previewTitle(page)).toBeHidden();
+
+    expect(errors).toEqual([]);
+  });
+});
+
+/**
+ * Switching views is not a navigation: the panel, the row and the previewed thread
+ * all belong to `ChannelView` rather than to either view, so a preview open on a
+ * bubble is still open on the card. The unmount is the risky half — this is where a
+ * `ResizeObserver` that throws on teardown would show up.
+ */
+test('the preview survives a switch from canvas to grid', async ({ page }) => {
+  const errors = collectBrowserErrors(page);
+  await page.goto('/');
+
+  await openPreview(page, THREADS.pinned);
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Grid', exact: true }).click();
+
+  await expect(page.locator(thread(THREADS.pinned))).toBeVisible();
+  await expect(previewTitle(page)).toBeVisible();
+
+  expect(errors).toEqual([]);
+});
+
+/**
+ * The panel is the one door to the thread in full, in either view. Its only
+ * outward sign until 2.4 builds the open thread view is the log — which is also
+ * why the dismiss X is checked here: it sits inside the panel, so without
+ * `stopPropagation` it would open the thread on its way to closing the preview.
+ */
+for (const threadView of ['canvas', 'grid'] as const) {
+  test(`clicking the preview panel opens the thread — ${threadView}`, async ({ page }) => {
+    const errors = collectBrowserErrors(page);
+    const opened: string[] = [];
+    page.on('console', (message) => {
+      if (message.text().startsWith('Open thread:')) opened.push(message.text());
+    });
+
+    await seedSettings(page, { threadView });
+    await page.goto('/');
+
+    await openPreview(page, THREADS.pinned);
+    expect(opened).toEqual([]);
+
+    await page.locator(PREVIEW_PANEL).click();
+    await expect.poll(() => opened).toEqual([`Open thread: ${THREADS.pinned}`]);
+    // Opening is not dismissing: the panel stays put until the thread view exists.
+    await expect(previewTitle(page)).toBeVisible();
+
+    await page.getByLabel('Dismiss preview').click();
+    await expect(previewTitle(page)).toBeHidden();
+    expect(opened).toHaveLength(1);
+
+    expect(errors).toEqual([]);
+  });
+}
+
+/** A channel with nothing in it. Both views draw the same two lines. */
+for (const threadView of ['canvas', 'grid'] as const) {
+  test(`an empty channel says so — ${threadView}`, async ({ page }) => {
+    const errors = collectBrowserErrors(page);
+    await seedSettings(page, { threadView });
+    await page.goto('/');
+
+    await page.getByRole('button', { name: channel(CHANNELS.empty), exact: true }).click();
+    await expect(page.getByText(EMPTY_STATE)).toBeVisible();
+    await expect(page.locator(thread(THREADS.pinned))).toHaveCount(0);
+
+    expect(errors).toEqual([]);
+  });
+}
 
 test.describe('settings', () => {
   /**

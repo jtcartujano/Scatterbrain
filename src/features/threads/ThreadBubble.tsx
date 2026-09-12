@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Thread } from '../../lib/mockData';
-import { mockUsers } from '../../lib/mockData';
 import { THREAD_SIZES, getStatusDotOffset, getThreadAppearance } from './threadLayout';
 import { ImageFan } from './ImageFan';
+import { ParticipantStack } from './ParticipantStack';
 import { formatTimestamp } from './formatTimestamp';
 
 interface ThreadBubbleProps {
@@ -14,32 +13,17 @@ interface ThreadBubbleProps {
   isDimmed?: boolean;
 }
 
-/** How long the node stays pressed past rest as the second click commits. */
-const PRESS_DURATION = 130;
-
+// The 130ms press past rest is gone with the gesture it belonged to. It existed
+// because the second click on a held node opened a thread view that didn't exist
+// yet — "so committing reads as a gesture rather than nothing". The second click
+// now puts the preview away, which is not nothing: the panel collapses and the
+// node drops out of its lift. A dip to 0.985 on the way there fought both.
 export function ThreadBubble({
   thread,
   onClick,
   isPreviewed = false,
   isDimmed = false,
 }: ThreadBubbleProps) {
-  const [isPressed, setIsPressed] = useState(false);
-  const pressTimer = useRef(0);
-
-  useEffect(() => () => window.clearTimeout(pressTimer.current), []);
-
-  // The second click on a held node is the one that opens the thread, and until
-  // the thread view exists it has nothing else to show for itself. The lift
-  // returning past rest reads as the commit without adding a new gesture.
-  const handleClick = useCallback(() => {
-    if (isPreviewed) {
-      setIsPressed(true);
-      window.clearTimeout(pressTimer.current);
-      pressTimer.current = window.setTimeout(() => setIsPressed(false), PRESS_DURATION);
-    }
-    onClick(thread.id);
-  }, [isPreviewed, onClick, thread.id]);
-
   const footprint = THREAD_SIZES[thread.size];
   // Tilt and blob radius are derived from the thread id, not stored on it.
   const { rotation, borderRadius, corners } = getThreadAppearance(thread.id);
@@ -66,7 +50,7 @@ export function ThreadBubble({
   return (
     <button
       data-thread-id={thread.id}
-      onClick={handleClick}
+      onClick={() => onClick(thread.id)}
       className="absolute cursor-pointer hover:scale-105"
       style={{
         left: `${thread.position.x}px`,
@@ -76,11 +60,7 @@ export function ThreadBubble({
         // is the point: a held node is hover that didn't let go, not one that
         // grows again under the pointer.
         transform: `rotate(${rotation}deg)`,
-        scale: isPressed
-          ? 'var(--press-scale)'
-          : isPreviewed
-            ? 'var(--hover-lift-scale)'
-            : undefined,
+        scale: isPreviewed ? 'var(--hover-lift-scale)' : undefined,
         opacity: isDimmed ? 'var(--opacity-deselected)' : undefined,
         zIndex: isPreviewed ? 2 : undefined,
         transition: `transform var(--duration-expand) var(--ease-soft),
@@ -150,37 +130,13 @@ export function ThreadBubble({
           </div>
         ) : (
           <div className="relative flex items-center">
-            {thread.participants.slice(0, 3).map((participant, index) => {
-              const user = mockUsers.find((u) => u.id === participant.id) || participant;
-              return (
-                <div
-                  key={participant.id}
-                  className="rounded-full border-2"
-                  style={{
-                    width: thread.size === 'small' ? '15px' : '18px',
-                    height: thread.size === 'small' ? '15px' : '18px',
-                    backgroundColor: user.color,
-                    borderColor: 'var(--color-surface)',
-                    marginLeft: index > 0 ? '-6px' : '0',
-                  }}
-                />
-              );
-            })}
-            {thread.participants.length > 3 && (
-              <div
-                className="rounded-full flex items-center justify-center text-[9px] font-semibold border-2"
-                style={{
-                  width: thread.size === 'small' ? '15px' : '18px',
-                  height: thread.size === 'small' ? '15px' : '18px',
-                  backgroundColor: 'var(--fill-mist)',
-                  borderColor: 'var(--color-surface)',
-                  color: 'var(--color-ink)',
-                  marginLeft: '-6px',
-                }}
-              >
-                +{thread.participants.length - 3}
-              </div>
-            )}
+            <ParticipantStack
+              participants={thread.participants}
+              size={thread.size === 'small' ? 15 : 18}
+              overlap={6}
+              max={3}
+              chipFill="var(--fill-mist)"
+            />
           </div>
         )}
 

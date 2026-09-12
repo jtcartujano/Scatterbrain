@@ -68,6 +68,24 @@
   transition: opacity var(--duration-base) linear;
 }
 
+/* A thread card in the grid view. Faster and flatter than a canvas node latching:
+   240ms and the soft curve are for something with weight travelling across a
+   plane, and a card that rises 6px in place has neither. Declared here rather than
+   inline so reduced motion can switch it off with the rest. */
+.thread-card {
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    opacity var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+/* The held/hovered fill, on its own layer so it can crossfade — a background
+   swap can't animate to `none`, and the fill has to sit over Surface. */
+.thread-card-fill {
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
 /* The plane zooms out as the canvas shortens. The sizer carries the same scale as
    layout, so the two have to travel together or the scroll extent would lead the
    picture. Same duration, same curve, so they stay in step. */
@@ -85,6 +103,8 @@
   .preview-panel,
   .tether,
   .scroll-indicator,
+  .thread-card,
+  .thread-card-fill,
   .plane,
   .plane-sizer {
     transition: none;

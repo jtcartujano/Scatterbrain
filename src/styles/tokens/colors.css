@@ -30,6 +30,12 @@
   --fill-mist-strong: color-mix(in oklab, var(--color-mist) 25%, transparent);
   --dot-canvas: color-mix(in oklab, var(--color-mist) 18%, transparent);
 
+  /* Overflow counts on a grid card — "+4" members, "+3" images. Ink rather than
+     Mist, so the chip reads as a chip against Surface in both themes. The canvas
+     bubble and the preview panel still use --fill-mist for the same mark; the
+     grid is the only surface the design pass retuned. */
+  --fill-chip: color-mix(in oklab, var(--color-ink) 18%, transparent);
+
   /* Everything the preview panel isn't about, while it's open. Deliberately not
      the design system's --opacity-disabled, which happens to share the number:
      "not currently selected" and "you can't use this" want to move apart the

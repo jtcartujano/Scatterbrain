@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { THREADS, openPreview, seedSettings, thread } from './helpers';
+import { CHANNELS, EMPTY_STATE, THREADS, channel, openPreview, seedSettings, thread } from './helpers';
 
 /**
  * Not a test suite — a screenshot generator that happens to run on the test
@@ -67,6 +67,91 @@ test.describe('canvas states', () => {
     await openPreview(page, THREADS.images);
 
     await page.screenshot({ path: `${DIR}/preview-images.png`, animations: 'disabled' });
+  });
+});
+
+/**
+ * The grid, which has never been looked at at all — it was built from one frame of
+ * a design export in a single pass. The calls worth a human eye are the ones the
+ * export argued for and the code can only claim: whether a 2×2 card and a 1×1 rise
+ * by visibly the *same* amount, whether the lift clears its neighbours rather than
+ * shoving them, whether dense flow leaves holes, and whether a previewed card with
+ * no ring still reads as selected.
+ */
+test.describe('grid states', () => {
+  for (const theme of ['dark', 'light'] as const) {
+    test(`grid at rest — ${theme}`, async ({ page }) => {
+      await seedSettings(page, { theme, threadView: 'grid' });
+      await page.goto('/');
+      await expect(page.locator(thread(THREADS.pinned))).toBeVisible();
+
+      await page.screenshot({ path: `${DIR}/grid-rest-${theme}.png`, animations: 'disabled' });
+    });
+
+    /** The 2×2 pinned card: ring kept, fill and lift carrying the held state. */
+    test(`grid preview on a pinned card — ${theme}`, async ({ page }) => {
+      await seedSettings(page, { theme, threadView: 'grid' });
+      await page.goto('/');
+      await openPreview(page, THREADS.pinned);
+
+      await page.screenshot({
+        path: `${DIR}/grid-preview-pinned-${theme}.png`,
+        animations: 'disabled',
+      });
+    });
+  }
+
+  /**
+   * The one place the card deliberately parts company with the bubble: a thread
+   * with no state of its own gets *no* achromatic ring here, so fill, lift and the
+   * raised shadow have to carry selection between them. A 1×1 card, so it is also
+   * the shot that says whether the smallest slot rises as far as the largest.
+   */
+  test('grid preview on a plain card', async ({ page }) => {
+    await seedSettings(page, { threadView: 'grid' });
+    await page.goto('/');
+    await openPreview(page, THREADS.plain);
+
+    await page.screenshot({ path: `${DIR}/grid-preview-plain.png`, animations: 'disabled' });
+  });
+
+  /** The card's flat gallery against the panel's 3-up grid — neither is the fan. */
+  test('grid preview with images', async ({ page }) => {
+    await seedSettings(page, { threadView: 'grid' });
+    await page.goto('/');
+    await openPreview(page, THREADS.images);
+
+    await page.screenshot({ path: `${DIR}/grid-preview-images.png`, animations: 'disabled' });
+  });
+
+  /** Both views, so the two can be compared in one pass. */
+  for (const threadView of ['canvas', 'grid'] as const) {
+    test(`empty channel — ${threadView}`, async ({ page }) => {
+      await seedSettings(page, { threadView });
+      await page.goto('/');
+      await page.getByRole('button', { name: channel(CHANNELS.empty), exact: true }).click();
+      await expect(page.getByText(EMPTY_STATE)).toBeVisible();
+
+      await page.screenshot({ path: `${DIR}/empty-${threadView}.png`, animations: 'disabled' });
+    });
+  }
+});
+
+/**
+ * Narrow enough that the region falls under the grid's 660px floor with both side
+ * columns open. The grid holds four columns and scrolls sideways rather than
+ * dropping to fewer, as the canvas plane does — and the drawn indicator appears,
+ * because the panel has taken its half and there is more grid than fits.
+ */
+test.describe('grid floor', () => {
+  test.use({ viewport: { width: 1180, height: 720 } });
+
+  test('grid under the column floor', async ({ page }) => {
+    await seedSettings(page, { threadView: 'grid' });
+    await page.goto('/');
+    await openPreview(page, THREADS.pinned);
+
+    await page.screenshot({ path: `${DIR}/grid-narrow.png`, animations: 'disabled' });
   });
 });
 

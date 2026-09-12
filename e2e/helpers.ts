@@ -35,7 +35,12 @@ export function collectBrowserErrors(page: Page): string[] {
  */
 export const PREVIEW_PANEL = 'section';
 
-/** A thread node, by the `data-thread-id` the canvas already puts on every bubble. */
+/**
+ * A thread node, by the `data-thread-id` both views put on every thread — a blob
+ * on the canvas, a card in the grid. Everything here that drives a thread works
+ * against either view for free, which is the point: the two are alternative
+ * drawings of one thing, not different screens.
+ */
 export const thread = (id: string) => `[data-thread-id="${id}"]`;
 
 /**
@@ -72,6 +77,15 @@ export async function openPreview(page: Page, threadId: string) {
  * pair worth looking at. `t9` is the only thread with images.
  */
 export const THREADS = { pinned: 't1', unread: 't2', plain: 't5', images: 't9' } as const;
+
+/**
+ * `brainstorm` (c4) is the only channel with threads, so anything else is the
+ * empty state. Both views draw one, and neither did before the grid landed.
+ */
+export const CHANNELS = { threads: 'brainstorm', empty: 'general' } as const;
+
+/** Both views draw the same copy when a channel has nothing in it. */
+export const EMPTY_STATE = 'No threads here yet';
 
 type Settings = {
   theme?: 'light' | 'dark';

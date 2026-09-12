@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Channel, Thread } from '../../lib/mockData';
+import { useSettings } from '../../hooks/useSettings';
 import { ChannelHeader } from './ChannelHeader';
 import { ThreadCanvas } from '../threads/ThreadCanvas';
+import { ThreadGrid } from '../threads/ThreadGrid';
 import { ThreadPreviewPanel } from '../threads/ThreadPreviewPanel';
 
 interface ChannelViewProps {
@@ -12,11 +14,16 @@ interface ChannelViewProps {
 /** --duration-expand. Matched here so the panel can outlive its own collapse. */
 const EXPAND_DURATION = 240;
 
-/** The canvas's own `m-4`, top and bottom. */
+/**
+ * The canvas's own `m-4`, top and bottom. The grid insets itself with padding
+ * inside its scroller instead — the previewed card grows past its slot and would
+ * be sheared off by an `overflow: auto` edge it was flush against — so the grid
+ * takes the region's full height and this doesn't apply to it.
+ */
 const CANVAS_MARGIN = 32;
 
-/** Below this the canvas has stopped being a canvas, so the panel gives way instead. */
-const CANVAS_MIN = 160;
+/** Below this the view has stopped being one, so the panel gives way instead. */
+const CONTENT_MIN = 160;
 
 /**
  * The panel is content-sized under this share of the region — provisional until
@@ -32,17 +39,23 @@ function measure(element: HTMLElement | null): number {
 
 /**
  * Owns the main content region for a channel: header, optional thread preview,
- * and the canvas. The preview lives here rather than in a `MainLayout` slot so
- * the app shell stays a generic three-slot frame — Friends, DMs and Settings all
- * render into the same slot and have no use for a preview.
+ * and whichever thread view is selected. The preview lives here rather than in a
+ * `MainLayout` slot so the app shell stays a generic three-slot frame — Friends,
+ * DMs and Settings all render into the same slot and have no use for a preview.
  *
- * The region is measured rather than left to flex, because the canvas has to take
+ * Everything below the header is view-agnostic on purpose. The canvas and the grid
+ * are alternatives for drawing the same threads, not different screens: the panel,
+ * the row geometry and preview-once/open-twice are shared, and `threadView` picks
+ * only what goes in the slot.
+ *
+ * The region is measured rather than left to flex, because the view has to take
  * its new height in a single frame while the panel animates. Left as `flex-1` it
  * would squeeze across the whole 240ms, and a canvas contracting around its own
  * contents reads as the plane zooming out. Here it is a rigid block that the
  * growing panel pushes down — the only thing that travels is the boundary.
  */
 export function ChannelView({ channel, threads }: ChannelViewProps) {
+  const { threadView } = useSettings();
   const [previewThreadId, setPreviewThreadId] = useState<string | null>(null);
   // Lags `previewThreadId` by one collapse, so the panel's contents survive the
   // close instead of vanishing the instant the row starts shutting.
@@ -57,10 +70,14 @@ export function ChannelView({ channel, threads }: ChannelViewProps) {
   const isOpen = previewThreadId !== null;
 
   // The cap is applied here rather than as a CSS `max-height` so the row and the
-  // canvas are sized from one number. Left to CSS they could disagree, and the
-  // difference would show as a gap under the canvas.
+  // view below are sized from one number. Left to CSS they could disagree, and the
+  // difference would show as a gap underneath.
   const rowHeight = isOpen ? Math.min(panelHeight, regionHeight * PANEL_CAP) : 0;
-  const canvasHeight = Math.max(CANVAS_MIN, regionHeight - rowHeight - CANVAS_MARGIN);
+  const isGrid = threadView === 'grid';
+  const contentHeight = Math.max(
+    CONTENT_MIN,
+    regionHeight - rowHeight - (isGrid ? 0 : CANVAS_MARGIN),
+  );
 
   // A preview belongs to the channel it was opened in.
   useEffect(() => {
@@ -104,15 +121,22 @@ export function ChannelView({ channel, threads }: ChannelViewProps) {
     return () => observer.disconnect();
   }, [displayedThreadId]);
 
-  // One click previews. A second click on the *same* bubble opens the thread.
+  // A node toggles its own preview: one click opens it, a second click on the
+  // *same* thread puts it away. Clicking a different thread swaps the panel over
+  // rather than closing it. Identical in both views — the pattern belongs to the
+  // region, not to the canvas.
+  //
+  // Opening the thread in full is the panel's job, not the node's. The node used
+  // to carry both, which left its second click with nothing to show for itself:
+  // the panel stayed exactly where it was, and the only outward sign was a log.
   const handleThreadClick = (threadId: string) => {
-    if (previewThreadId === threadId) {
-      console.log('Open thread:', threadId);
-      // Future: navigate to the open thread view (roadmap 2.4), which is also
-      // where unread clears — previewing a thread deliberately does not.
-      return;
-    }
-    setPreviewThreadId(threadId);
+    setPreviewThreadId((current) => (current === threadId ? null : threadId));
+  };
+
+  const handleOpenThread = () => {
+    console.log('Open thread:', displayedThreadId);
+    // Future: navigate to the open thread view (roadmap 2.4), which is also where
+    // unread clears — previewing a thread deliberately does not.
   };
 
   const handleNewThread = () => {
@@ -146,6 +170,7 @@ export function ChannelView({ channel, threads }: ChannelViewProps) {
                   thread={displayedThread}
                   channel={channel}
                   open={isOpen}
+                  onOpen={handleOpenThread}
                   onDismiss={() => setPreviewThreadId(null)}
                 />
               )}
@@ -153,12 +178,23 @@ export function ChannelView({ channel, threads }: ChannelViewProps) {
           </div>
         </div>
 
-        <ThreadCanvas
-          threads={threads}
-          onThreadClick={handleThreadClick}
-          previewThreadId={previewThreadId}
-          height={canvasHeight}
-        />
+        {/* The preview deliberately survives a view switch: it is the same thread
+            previewed either way, and the panel above is the same panel. */}
+        {isGrid ? (
+          <ThreadGrid
+            threads={threads}
+            onThreadClick={handleThreadClick}
+            previewThreadId={previewThreadId}
+            height={contentHeight}
+          />
+        ) : (
+          <ThreadCanvas
+            threads={threads}
+            onThreadClick={handleThreadClick}
+            previewThreadId={previewThreadId}
+            height={contentHeight}
+          />
+        )}
       </div>
     </>
   );
