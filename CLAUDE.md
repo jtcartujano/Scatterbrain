@@ -140,7 +140,23 @@ Rough route shape (routes/pages, not component sections):
 ## Commands
 ```
 npm run dev
-npm run build
+npm run build      # tsc -b (app, vite config and e2e) then vite build
 npm run lint
+npm test           # Playwright smoke suite
+npm run shots      # regenerate the screenshot set in e2e/shots/
 ```
 Supabase/Vercel CLI commands — TBD once wired up.
+
+## Testing
+Playwright, in two halves that are deliberately not the same thing:
+
+- **`e2e/smoke.spec.ts` asserts.** It drives the paths a person takes and requires the browser to stay silent — `pageerror` and `console.error` are collected and must be empty. That is the point of it: `tsc` and `oxlint` structurally cannot see a null context throw, a conditionally-called hook, an effect that loops, or a `ResizeObserver` that throws on unmount, and the build stays green while the app is broken. `console.log` is deliberately *not* collected, because the open-thread and new-thread stubs both log on purpose until 2.4 and 2.5 replace them.
+- **`e2e/shots.spec.ts` produces pictures and asserts almost nothing.** Whether the 45% dim sits right against the dot grid is a judgement call; the job is to put it in front of someone. Output lands in `e2e/shots/`, gitignored.
+
+Notes that matter:
+- **It drives the Chrome already installed** (`channel: 'chrome'`), so there is no ~100MB Chromium download and no browser binary anywhere near the repo. CI has no system Chrome and falls back to the bundled one, which needs `npx playwright install --with-deps chromium` as a step first.
+- **Waiting on `toBeVisible()` for the preview panel is a trap**, and it silently produced a screenshot of a panel that wasn't there. The row's height is React state fed by a `ResizeObserver` and starts at 0; a child of a zero-height `overflow-hidden` row still reports a box of its own, so the panel reads as visible while clipped to nothing. `openPreview()` in `e2e/helpers.ts` waits on the row's real height instead — use it rather than clicking a bubble directly.
+- **Settings are seeded straight into localStorage** by `seedSettings()` via `addInitScript`, so a light-mode screenshot doesn't need four clicks first. It has to run before the page scripts, because the provider reads storage in a `useState` initialiser.
+- **No visual-regression baselines, on purpose.** Screenshot comparison baselines are OS- and browser-specific — one generated on Windows will not match Linux CI — and these surfaces are still moving. Revisit once they settle.
+- Specs are typechecked by `tsconfig.e2e.json`, which is referenced from the root `tsconfig.json` so `npm run build` covers them. It carries both `ES2023` and `DOM` libs, unlike the other two projects: the specs run in Node but `page.evaluate` callbacks compile for the browser.
+- Everything here runs against mock data. Phase 3 will need it revisited once there is auth and seeded DB state to arrange first.
