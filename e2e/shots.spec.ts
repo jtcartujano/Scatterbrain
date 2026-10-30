@@ -1,5 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { CHANNELS, EMPTY_STATE, THREADS, channel, openPreview, seedSettings, thread } from './helpers';
+import {
+  CHANNELS,
+  EMPTY_STATE,
+  PREVIEW_PANEL,
+  THREADS,
+  channel,
+  composer,
+  openPreview,
+  openThreadTitle,
+  seedSettings,
+  thread,
+} from './helpers';
 
 /**
  * Not a test suite — a screenshot generator that happens to run on the test
@@ -133,6 +144,143 @@ test.describe('grid states', () => {
       await expect(page.getByText(EMPTY_STATE)).toBeVisible();
 
       await page.screenshot({ path: `${DIR}/empty-${threadView}.png`, animations: 'disabled' });
+    });
+  }
+});
+
+/**
+ * The open thread view. Two of its calls were deliberately *not* settled from the
+ * mockup and are waiting on exactly these pictures:
+ *
+ * - **The header scrolls away** rather than pinning under the back bar, on the
+ *   grounds that a three-line description costs ~120px permanently.
+ * - **The right panel becomes Thread info**, replacing 24 channel members with the
+ *   seven people actually in the conversation.
+ *
+ * Everything else here is settled and just wants checking: the two reply layouts
+ * against each other, the unread divider in Signal, a reply's attachments at both
+ * tile sizes, and the composer's achromatic focus border in light mode — which is
+ * the same Ink 24% that has never been looked at anywhere else either.
+ */
+test.describe('open thread', () => {
+  const open = async (page: import('@playwright/test').Page, threadId: string) => {
+    await page.goto('/');
+    await openPreview(page, threadId);
+    await page.locator(PREVIEW_PANEL).click();
+    await expect(openThreadTitle(page)).toBeVisible();
+    // Attachments are CSS background images, so there is no `complete` flag to
+    // wait on and no element that reports itself loaded. Without this the shots
+    // catch empty outlines — which is exactly the thing they exist to show.
+    await page.waitForLoadState('networkidle');
+  };
+
+  for (const theme of ['dark', 'light'] as const) {
+    /** Standard: the roomier grouped block, and what the app boots into. */
+    test(`thread at rest, standard — ${theme}`, async ({ page }) => {
+      await seedSettings(page, { theme });
+      await open(page, THREADS.pinned);
+
+      await page.screenshot({
+        path: `${DIR}/thread-standard-${theme}.png`,
+        animations: 'disabled',
+      });
+    });
+
+    /** Compact: one row per reply, and roughly twice as many on screen. */
+    test(`thread at rest, compact — ${theme}`, async ({ page }) => {
+      await seedSettings(page, { theme, density: 'compact' });
+      await open(page, THREADS.pinned);
+
+      await page.screenshot({
+        path: `${DIR}/thread-compact-${theme}.png`,
+        animations: 'disabled',
+      });
+    });
+  }
+
+  /**
+   * Scrolled past the header — the state the held decision is really about.
+   * Whether the back bar alone carries enough context once the title is gone is
+   * the whole question, and it cannot be answered from the top of the page.
+   */
+  test('thread scrolled past the header', async ({ page }) => {
+    await seedSettings(page);
+    await open(page, THREADS.pinned);
+    await page.mouse.wheel(0, 600);
+    await page.waitForTimeout(400);
+
+    await page.screenshot({ path: `${DIR}/thread-scrolled.png`, animations: 'disabled' });
+  });
+
+  /** A reply carrying images, at the grouped layout's 96px tiles. */
+  test('reply attachments, standard', async ({ page }) => {
+    await seedSettings(page);
+    await open(page, THREADS.images);
+
+    await page.screenshot({
+      path: `${DIR}/thread-attachments-standard.png`,
+      animations: 'disabled',
+    });
+  });
+
+  /** The same reply at 64px, which is the only thing density changes about it. */
+  test('reply attachments, compact', async ({ page }) => {
+    await seedSettings(page, { density: 'compact' });
+    await open(page, THREADS.images);
+
+    await page.screenshot({
+      path: `${DIR}/thread-attachments-compact.png`,
+      animations: 'disabled',
+    });
+  });
+
+  /**
+   * The Signal divider, and the only shot where it can exist: opening the thread
+   * is what clears the unread flag, so the view captures the position on entry
+   * and the mark outlives the state that produced it.
+   */
+  test('unread divider', async ({ page }) => {
+    await seedSettings(page);
+    await open(page, THREADS.unread);
+
+    // Only the last four of 31 replies are new, so the divider is near the
+    // bottom. Wheeled in steps rather than one jump because Lenis eases each
+    // one — a single large delta lands short of where it was aimed.
+    for (let i = 0; i < 8; i++) {
+      await page.mouse.wheel(0, 900);
+      await page.waitForTimeout(120);
+    }
+    await page.waitForTimeout(400);
+
+    await page.screenshot({ path: `${DIR}/thread-unread.png`, animations: 'disabled' });
+  });
+
+  /** The composer focused and typed, plus the Reply pill leaving its disabled 45%. */
+  test('composer focused — light', async ({ page }) => {
+    await seedSettings(page, { theme: 'light' });
+    await open(page, THREADS.pinned);
+    await composer(page).fill('the gradient one is still winning honestly');
+
+    await page.screenshot({ path: `${DIR}/thread-composer.png`, animations: 'disabled' });
+  });
+});
+
+test.describe('open thread wide', () => {
+  test.use({ viewport: { width: 1728, height: 900 } });
+
+  for (const density of ['standard', 'compact'] as const) {
+    test(`thread on a wide window — ${density}`, async ({ page }) => {
+      await seedSettings(page, { density });
+      await page.goto('/');
+      await openPreview(page, THREADS.pinned);
+      await page.locator(PREVIEW_PANEL).click();
+      await expect(openThreadTitle(page)).toBeVisible();
+      await page.waitForLoadState('networkidle');
+
+      await page.screenshot({
+        path: `${DIR}/thread-wide-${density}.png`,
+        animations: 'disabled',
+      });
     });
   }
 });

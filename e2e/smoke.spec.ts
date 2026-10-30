@@ -4,9 +4,13 @@ import {
   EMPTY_STATE,
   PREVIEW_PANEL,
   THREADS,
+  backToChannel,
   channel,
   collectBrowserErrors,
+  composer,
   openPreview,
+  openThreadTitle,
+  replyButton,
   seedSettings,
   thread,
 } from './helpers';
@@ -173,37 +177,157 @@ test('the preview survives a switch from canvas to grid', async ({ page }) => {
 });
 
 /**
- * The panel is the one door to the thread in full, in either view. Its only
- * outward sign until 2.4 builds the open thread view is the log — which is also
- * why the dismiss X is checked here: it sits inside the panel, so without
- * `stopPropagation` it would open the thread on its way to closing the preview.
+ * The panel is the one door to the thread in full, in either view — and now it
+ * actually leads somewhere. Opening replaces the whole channel region, so the
+ * preview goes with it.
+ *
+ * Coming back is the half worth watching: `ChannelView` unmounts on the way in
+ * and remounts on the way out, tearing down two `ResizeObserver`s and the preview
+ * row each time. That is precisely the shape of bug this suite exists to catch,
+ * and `tsc` cannot see any of it.
  */
 for (const threadView of ['canvas', 'grid'] as const) {
-  test(`clicking the preview panel opens the thread — ${threadView}`, async ({ page }) => {
+  test(`the panel opens the thread and back returns — ${threadView}`, async ({ page }) => {
     const errors = collectBrowserErrors(page);
-    const opened: string[] = [];
-    page.on('console', (message) => {
-      if (message.text().startsWith('Open thread:')) opened.push(message.text());
-    });
-
     await seedSettings(page, { threadView });
     await page.goto('/');
 
     await openPreview(page, THREADS.pinned);
-    expect(opened).toEqual([]);
+    await expect(openThreadTitle(page)).toHaveCount(0);
 
     await page.locator(PREVIEW_PANEL).click();
-    await expect.poll(() => opened).toEqual([`Open thread: ${THREADS.pinned}`]);
-    // Opening is not dismissing: the panel stays put until the thread view exists.
-    await expect(previewTitle(page)).toBeVisible();
+    await expect(openThreadTitle(page)).toBeVisible();
+    // The region is replaced, so the panel and the threads behind it are gone.
+    await expect(previewTitle(page)).toHaveCount(0);
+    await expect(page.locator(thread(THREADS.pinned))).toHaveCount(0);
+    // The right panel follows the main region.
+    await expect(page.getByRole('heading', { name: 'Thread info' })).toBeVisible();
 
-    await page.getByLabel('Dismiss preview').click();
-    await expect(previewTitle(page)).toBeHidden();
-    expect(opened).toHaveLength(1);
+    await backToChannel(page, CHANNELS.threads).click();
+    await expect(page.locator(thread(THREADS.pinned))).toBeVisible();
+    await expect(openThreadTitle(page)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Channel info' })).toBeVisible();
 
     expect(errors).toEqual([]);
   });
 }
+
+/**
+ * The one wiring mistake here that would be completely silent.
+ *
+ * The dismiss X sits *inside* the panel, and the panel is the open affordance.
+ * Without `stopPropagation` the X would open the thread on its way to closing
+ * the preview — and since opening also removes the panel, the surface symptom
+ * would be "the X works", with an entire screen change nobody asked for.
+ */
+test('the dismiss X closes the preview without opening the thread', async ({ page }) => {
+  const errors = collectBrowserErrors(page);
+  await page.goto('/');
+
+  await openPreview(page, THREADS.pinned);
+  await page.getByLabel('Dismiss preview').click();
+
+  await expect(previewTitle(page)).toBeHidden();
+  await expect(openThreadTitle(page)).toHaveCount(0);
+  await expect(page.locator(thread(THREADS.pinned))).toBeVisible();
+
+  expect(errors).toEqual([]);
+});
+
+/**
+ * Optimistic append, and the invariants that hang off it. `replyCount` and
+ * `participants` are derived from the message list rather than authored, so a
+ * reply that lands without moving the count means something pushed onto
+ * `messages` directly and the derivation was bypassed.
+ */
+test('sending a reply appends it and the count moves', async ({ page }) => {
+  const errors = collectBrowserErrors(page);
+  await page.goto('/');
+
+  await openPreview(page, THREADS.pinned);
+  await page.locator(PREVIEW_PANEL).click();
+  await expect(page.getByText('42 replies')).toBeVisible();
+
+  await composer(page).fill('bubble it is then');
+  await replyButton(page).click();
+
+  await expect(page.getByText('bubble it is then')).toBeVisible();
+  await expect(page.getByText('43 replies')).toBeVisible();
+  // The composer empties rather than keeping what was just sent.
+  await expect(composer(page)).toHaveValue('');
+
+  expect(errors).toEqual([]);
+});
+
+/**
+ * The inversion that breaks quietly: unread clears on opening a thread in full
+ * and **not** on previewing it. That rule is the only reason the preview kicker
+ * can say `unread` honestly, and nothing enforced it before this view existed.
+ */
+test('opening clears unread; previewing does not', async ({ page }) => {
+  const errors = collectBrowserErrors(page);
+  await page.goto('/');
+
+  const kicker = page.locator(PREVIEW_PANEL).getByText('unread');
+
+  await openPreview(page, THREADS.unread);
+  await expect(kicker).toBeVisible();
+
+  // Close and peek again — a preview must not have consumed the state.
+  await page.keyboard.press('Escape');
+  await openPreview(page, THREADS.unread);
+  await expect(kicker).toBeVisible();
+
+  await page.locator(PREVIEW_PANEL).click();
+  await expect(openThreadTitle(page)).toBeVisible();
+  await backToChannel(page, CHANNELS.threads).click();
+
+  await openPreview(page, THREADS.unread);
+  await expect(previewTitle(page)).toHaveCount(0);
+  await expect(kicker).toHaveCount(0);
+
+  expect(errors).toEqual([]);
+});
+
+/**
+ * One setting, three surfaces. `Layout` sizes the rail and the info panel and
+ * picks the reply row, and switching it with a thread open swaps row components
+ * mid-list — the same unmount shape as the canvas↔grid toggle above.
+ */
+for (const density of ['standard', 'compact'] as const) {
+  test(`the reply list renders in ${density}`, async ({ page }) => {
+    const errors = collectBrowserErrors(page);
+    await seedSettings(page, { density });
+    await page.goto('/');
+
+    await openPreview(page, THREADS.pinned);
+    await page.locator(PREVIEW_PANEL).click();
+
+    await expect(page.getByText('bolt reads sharper at 16px')).toBeVisible();
+    // A reply with attachments, in whichever tile size this layout draws.
+    await expect(page.getByRole('img', { name: 'Attached image' }).first()).toBeVisible();
+
+    expect(errors).toEqual([]);
+  });
+}
+
+test('switching Layout with a thread open keeps the browser quiet', async ({ page }) => {
+  const errors = collectBrowserErrors(page);
+  await page.goto('/');
+
+  await openPreview(page, THREADS.pinned);
+  await page.locator(PREVIEW_PANEL).click();
+  await expect(page.getByText('bolt reads sharper at 16px')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Compact', exact: true }).click();
+
+  // Still the same thread, still the same replies — a different row drawing them.
+  await expect(openThreadTitle(page)).toBeVisible();
+  await expect(page.getByText('bolt reads sharper at 16px')).toBeVisible();
+
+  expect(errors).toEqual([]);
+});
 
 /** A channel with nothing in it. Both views draw the same two lines. */
 for (const threadView of ['canvas', 'grid'] as const) {

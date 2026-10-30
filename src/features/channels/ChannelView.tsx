@@ -9,6 +9,8 @@ import { ThreadPreviewPanel } from '../threads/ThreadPreviewPanel';
 interface ChannelViewProps {
   channel: Channel;
   threads: Thread[];
+  /** Raised to `App`, which owns the open thread and clears its unread mark. */
+  onOpenThread: (threadId: string) => void;
 }
 
 /** --duration-expand. Matched here so the panel can outlive its own collapse. */
@@ -54,7 +56,7 @@ function measure(element: HTMLElement | null): number {
  * contents reads as the plane zooming out. Here it is a rigid block that the
  * growing panel pushes down — the only thing that travels is the boundary.
  */
-export function ChannelView({ channel, threads }: ChannelViewProps) {
+export function ChannelView({ channel, threads, onOpenThread }: ChannelViewProps) {
   const { threadView } = useSettings();
   const [previewThreadId, setPreviewThreadId] = useState<string | null>(null);
   // Lags `previewThreadId` by one collapse, so the panel's contents survive the
@@ -133,10 +135,10 @@ export function ChannelView({ channel, threads }: ChannelViewProps) {
     setPreviewThreadId((current) => (current === threadId ? null : threadId));
   };
 
+  // The panel is the door to the thread in full. `App` owns which thread is open
+  // — the region only says which one was asked for.
   const handleOpenThread = () => {
-    console.log('Open thread:', displayedThreadId);
-    // Future: navigate to the open thread view (roadmap 2.4), which is also where
-    // unread clears — previewing a thread deliberately does not.
+    if (displayedThreadId) onOpenThread(displayedThreadId);
   };
 
   const handleNewThread = () => {

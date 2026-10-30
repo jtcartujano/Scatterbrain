@@ -79,6 +79,22 @@ export async function openPreview(page: Page, threadId: string) {
 export const THREADS = { pinned: 't1', unread: 't2', plain: 't5', images: 't9' } as const;
 
 /**
+ * The open thread view, by its title. Nothing else in the app renders an `h1` —
+ * the channel header is an `h2` and so is the preview panel — so this is both
+ * the cheapest identifier and the one that says what it means.
+ */
+export const openThreadTitle = (page: Page) => page.getByRole('heading', { level: 1 });
+
+/** Up to the channel. Labelled rather than matched on "← #brainstorm". */
+export const backToChannel = (page: Page, name: string) =>
+  page.getByLabel(`Back to ${name}`);
+
+/** The composer's field and its send button. */
+export const composer = (page: Page) => page.getByLabel('Write a reply');
+export const replyButton = (page: Page) =>
+  page.getByRole('button', { name: 'Reply', exact: true });
+
+/**
  * `brainstorm` (c4) is the only channel with threads, so anything else is the
  * empty state. Both views draw one, and neither did before the grid landed.
  */

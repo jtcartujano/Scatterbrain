@@ -1,18 +1,23 @@
-import type { Channel } from '../../lib/mockData';
-import { mockUsers, mockThreads, BRAINSTORM_MEMBER_COUNT } from '../../lib/mockData';
+import type { Channel, Thread } from '../../lib/mockData';
+import { mockUsers, BRAINSTORM_MEMBER_COUNT } from '../../lib/mockData';
 import { useSettings } from '../../hooks/useSettings';
 
 interface ChannelInfoPanelProps {
   channel: Channel;
+  /**
+   * The channel's threads, already filtered. Passed rather than read from the
+   * module: threads are `App` state now, and a second component reading the
+   * frozen `mockThreads` would quietly disagree with the canvas the moment
+   * anything wrote to them — a newly created thread (2.5) being the obvious case.
+   */
+  threads: Thread[];
   onCollapse?: () => void;
 }
 
-export function ChannelInfoPanel({ channel, onCollapse }: ChannelInfoPanelProps) {
+export function ChannelInfoPanel({ channel, threads, onCollapse }: ChannelInfoPanelProps) {
   const { compact } = useSettings();
 
-  const pinnedThread = mockThreads.find(
-    (thread) => thread.channelId === channel.id && thread.isPinned
-  );
+  const pinnedThread = threads.find((thread) => thread.isPinned);
 
   return (
     <div className="flex flex-col h-full">

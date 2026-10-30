@@ -264,7 +264,9 @@ export function ServerSidebar({ servers, activeChannelId, onChannelSelect }: Ser
               />
             </SettingRow>
 
-            <SettingRow label="Sidebar">
+            {/* Was "Sidebar", which stopped being true twice over: this sizes the
+                info panel as well, and now picks the reply row in an open thread. */}
+            <SettingRow label="Layout">
               <SegmentedControl<Density>
                 value={density}
                 onChange={setDensity}

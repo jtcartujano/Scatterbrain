@@ -86,6 +86,27 @@
   transition: opacity var(--duration-fast) var(--ease-standard);
 }
 
+/* A reply in the open thread. Hover is the house rule — background to
+   --fill-subtle, never opacity — and it is a class rather than inline handlers
+   because a 42-reply thread would otherwise carry 84 of them. */
+.reply-row {
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.reply-row:hover {
+  background-color: var(--fill-subtle);
+}
+
+/* Ink→Mist and back, as a reply stops being pending. The only thing that marks
+   an unconfirmed write, so it should arrive rather than snap. */
+.reply-body {
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.back-link:hover {
+  color: var(--color-ink);
+}
+
 /* The plane zooms out as the canvas shortens. The sizer carries the same scale as
    layout, so the two have to travel together or the scroll extent would lead the
    picture. Same duration, same curve, so they stay in step. */
@@ -105,6 +126,8 @@
   .scroll-indicator,
   .thread-card,
   .thread-card-fill,
+  .reply-row,
+  .reply-body,
   .plane,
   .plane-sizer {
     transition: none;

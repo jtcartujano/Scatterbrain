@@ -42,6 +42,18 @@
      first time either is retuned. */
   --opacity-deselected: 0.45;
 
+  /* An inert control — the composer's Reply button with nothing typed. Its own
+     token despite sharing a value with --opacity-deselected, for exactly the
+     reason that one's comment gives. This is the other half of that pair finally
+     arriving; the design system proposed it in proposal-states.card.html. */
+  --opacity-disabled: 0.45;
+
+  /* Focus, on the first surface in the app that can take text. Achromatic on
+     purpose: Spark means selected-or-pinned and Signal means new, both
+     exclusively, so neither can also mean "typing here". Same Ink 24% as
+     --ring-held, which is the established achromatic mark. */
+  --border-focus: color-mix(in oklab, var(--color-ink) 24%, transparent);
+
   /* Semantic aliases */
   --surface-app: var(--color-void);
   --surface-panel: var(--color-surface);

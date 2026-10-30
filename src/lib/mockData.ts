@@ -14,12 +14,34 @@ export type DirectMessage = {
   unreadCount?: number;
 };
 
+/**
+ * Media hanging off a single reply.
+ *
+ * A one-variant union on purpose. Only images are built, but the `kind`
+ * discriminant is here from the start so video, voice notes and files arrive as
+ * additive variants — and the moment one is added, TypeScript turns every
+ * consumer that doesn't handle it into a compile error. That's a checklist
+ * rather than a hunt, and it costs one field today.
+ *
+ * Separate from `Thread.images`, which is the *root post's* media and stays a
+ * bare `string[]`. A thread's images and a reply's images are different things
+ * that happen to render alike.
+ */
+export type Attachment = { kind: 'image'; url: string; alt?: string };
+
 // Message types
 export type Message = {
   id: string;
   authorId: string;
   content: string;
   timestamp: Date;
+  attachments?: Attachment[];
+  /**
+   * Written locally and not yet confirmed by a server. There is no server yet,
+   * so today this is set on send and cleared on a timer — the state is real, the
+   * round-trip it stands for is not. Realtime replaces the timer, not the state.
+   */
+  pending?: boolean;
 };
 
 /**
@@ -49,6 +71,16 @@ export type Thread = {
   participants: User[];
   isPinned?: boolean;
   isUnread?: boolean;
+  /**
+   * The last reply already seen. The open thread view draws its `new` divider
+   * directly after it, which is the whole reason it exists — `isUnread` alone
+   * says *that* there is something new, not *where* it starts.
+   *
+   * Only meaningful while `isUnread`. Opening a thread clears the flag and moves
+   * this to the newest reply; the divider the reader is looking at survives
+   * because the view captures its position on entry rather than re-reading it.
+   */
+  lastReadMessageId?: string;
   replyCount: number;
   lastActivity: Date;
   position: { x: number; y: number };
@@ -89,6 +121,18 @@ export const mockUsers: User[] = [
   { id: 'u6', name: 'quinn hayes', avatar: '', color: 'oklch(65% 0.15 260)', status: 'online' },
   { id: 'u7', name: 'drew kim', avatar: '', color: 'oklch(65% 0.15 120)', status: 'offline' },
 ];
+
+/**
+ * Stands in for the signed-in user until Supabase Auth exists — every reply
+ * written in the app is authored by them, and every thread created.
+ *
+ * Deliberately sy park rather than jae mercer: sy park is absent from the
+ * participants of several threads (`naming the mascot`, `bug: notifications
+ * double-firing`), so replying there exercises the path where a reply adds
+ * someone new to `participants`. Picking a user who already appears everywhere
+ * would leave that path unrun in the demo.
+ */
+export const currentUser: User = mockUsers[3];
 
 // Direct Messages
 export const mockDirectMessages: DirectMessage[] = [
@@ -161,10 +205,26 @@ const ago = (ms: number) => new Date(Date.now() - ms);
  * Authoring shape for the mock threads. `replies` is a compact
  * `[authorIndex, content]` tuple list — writing 156 literal Message objects
  * would bury the file and let the derived fields drift out of sync.
+ *
+ * The third slot is optional because almost no reply has attachments; a
+ * required one would put `undefined` on 150-odd lines to say nothing.
  */
-type ThreadSeed = Omit<Thread, 'messages' | 'replyCount' | 'participants'> & {
-  replies: [authorIndex: number, content: string][];
+type ThreadSeed = Omit<
+  Thread,
+  'messages' | 'replyCount' | 'participants' | 'lastReadMessageId'
+> & {
+  replies: [authorIndex: number, content: string, attachments?: Attachment[]][];
+  /**
+   * How many trailing replies are new. Derived into `lastReadMessageId` rather
+   * than authored as one, so editing a thread's replies can't leave the divider
+   * pointing at a message that moved.
+   */
+  newReplies?: number;
 };
+
+/** Reply attachments, so the seeds below stay one line each. */
+const pics = (...seeds: string[]): Attachment[] =>
+  seeds.map((seed) => ({ kind: 'image', url: `https://picsum.photos/seed/${seed}/200` }));
 
 /**
  * Expands a seed into a Thread, deriving everything derivable so the
@@ -173,25 +233,58 @@ type ThreadSeed = Omit<Thread, 'messages' | 'replyCount' | 'participants'> & {
  * participants are exactly the people who appear in the thread.
  */
 function toThread(seed: ThreadSeed): Thread {
-  const { replies, ...thread } = seed;
+  const { replies, newReplies, ...thread } = seed;
 
   const start = seed.createdAt.getTime();
   const span = seed.lastActivity.getTime() - start;
   const step = replies.length > 0 ? span / replies.length : 0;
 
-  const messages: Message[] = replies.map(([authorIndex, content], index) => ({
+  const messages: Message[] = replies.map(([authorIndex, content, attachments], index) => ({
     id: `${seed.id}-m${index + 1}`,
     authorId: mockUsers[authorIndex].id,
     content,
     timestamp: new Date(start + step * (index + 1)),
+    attachments,
   }));
 
   // Author first, then each distinct replier in the order they first spoke.
-  const participants = [...new Set([seed.authorId, ...messages.map((m) => m.authorId)])]
+  const participants = deriveParticipants(seed.authorId, messages);
+
+  return {
+    ...thread,
+    messages,
+    replyCount: messages.length,
+    participants,
+    lastReadMessageId: newReplies ? messages[messages.length - newReplies - 1]?.id : undefined,
+  };
+}
+
+/** Author first, then each distinct replier in the order they first spoke. */
+function deriveParticipants(authorId: string, messages: Message[]): User[] {
+  return [...new Set([authorId, ...messages.map((m) => m.authorId)])]
     .map((id) => mockUsers.find((user) => user.id === id))
     .filter((user): user is User => user !== undefined);
+}
 
-  return { ...thread, messages, replyCount: messages.length, participants };
+/**
+ * Adds a reply and re-derives everything that follows from the message list.
+ *
+ * `toThread` establishes the invariants by construction — `replyCount` is the
+ * number of messages, `participants` is exactly the people who appear, and
+ * `lastActivity` is the last reply's timestamp. Pushing onto `messages` alone
+ * would break all three quietly, so appending goes through here instead. It is
+ * also where the DB's denormalised counter and participants join will be kept in
+ * step once there is one.
+ */
+export function appendReply(thread: Thread, message: Message): Thread {
+  const messages = [...thread.messages, message];
+  return {
+    ...thread,
+    messages,
+    replyCount: messages.length,
+    participants: deriveParticipants(thread.authorId, messages),
+    lastActivity: message.timestamp,
+  };
 }
 
 // Threads in "brainstorm" channel (c4)
@@ -214,7 +307,7 @@ const threadSeeds: ThreadSeed[] = [
       [1, 'bubble has more warmth though'],
       [2, 'lorem ipsum dolor sit'],
       [3, 'can we see both on dark?'],
-      [0, 'posting variants in a sec'],
+      [0, 'posting variants in a sec', pics('logo-a', 'logo-b')],
       [4, 'the bolt feels generic tbh'],
       [5, 'agreed, seen it everywhere'],
       [1, 'warmth > sharpness here'],
@@ -264,6 +357,7 @@ const threadSeeds: ThreadSeed[] = [
     lastActivity: ago(38 * MINUTE),
     position: { x: 380, y: 100 },
     size: 'large',
+    newReplies: 4,
     replies: [
       [2, 'e2e by default or opt in?'],
       [3, 'default. anything else is theatre'],
@@ -340,6 +434,7 @@ const threadSeeds: ThreadSeed[] = [
     lastActivity: ago(2 * HOUR),
     position: { x: 100, y: 320 },
     size: 'large',
+    newReplies: 3,
     replies: [
       [1, 'six screens is a lot'],
       [3, 'four of them are legal'],
@@ -387,6 +482,7 @@ const threadSeeds: ThreadSeed[] = [
     lastActivity: ago(5 * HOUR),
     position: { x: 580, y: 320 },
     size: 'medium',
+    newReplies: 3,
     replies: [
       [5, 'only after a background sync'],
       [1, 'ios or android'],
@@ -456,7 +552,7 @@ const threadSeeds: ThreadSeed[] = [
       'https://picsum.photos/seed/meme6/200',
     ],
     replies: [
-      [3, 'starting strong'],
+      [3, 'starting strong', pics('meme-a', 'meme-b')],
       [0, 'thats awful'],
       [1, 'thats the point'],
       [5, 'lorem ipsum dolor sit amet'],
@@ -464,7 +560,7 @@ const threadSeeds: ThreadSeed[] = [
       [0, 'delete this'],
       [1, 'never'],
       [5, 'consectetur adipiscing elit'],
-      [3, 'round two'],
+      [3, 'round two', pics('meme-c', 'meme-d', 'meme-e', 'meme-f')],
       [0, 'worse somehow'],
       [1, 'improving'],
       [5, 'sed do eiusmod'],
