@@ -21,10 +21,7 @@ test-results
 playwright-report
 e2e/shots
 
-# Local working docs — not for the remote
-ROADMAP.md
-
-# Design system synced from Claude Design — local only
+# Design system — installed locally as a skill, not committed
 .claude/skills/scatterbrain-design/
 
 # Editor directories and files
